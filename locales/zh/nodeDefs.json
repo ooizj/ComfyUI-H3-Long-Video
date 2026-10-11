@@ -133,13 +133,13 @@
     }
   },
   "MiniMaxH3PromptAPI": {
-    "description": "配置 Chat Completions API。H3 Long Video 先检查定时对白边界，再请求以 JSON 返回的简洁分段提示词。无需工具调用。本配置节点自身不调用 API。",
+    "description": "配置 Chat Completions API，云端或本地均可。H3 Long Video 先让 LLM 列出带时间的对白和事件，由节点算出各段的段内时间，再请求以 JSON 返回的分段提示词。无需工具调用。本配置节点自身不调用 API。",
     "inputs": {
       "api_url": {
         "tooltip": "API 基础地址（需要时包含 /v1），或完整的 /chat/completions 地址。Ollama 填 http://127.0.0.1:11434/v1。"
       },
       "model": {
-        "tooltip": "API 提供的模型 ID，例如 DeepSeek 模型或本地 API 服务加载的模型。"
+        "tooltip": "API 提供的模型。修改 api_url 或 api_key 后从 /models 接口读取列表；API 没有列出模型时为 default。"
       },
       "api_key": {
         "tooltip": "API 密钥，不带 Bearer。本地无鉴权服务可留空。该值可能保存在工作流、历史记录和输出元数据中，分享前请删除。"
@@ -151,10 +151,16 @@
         "tooltip": "包含模型的思考 token。本地服务拒绝请求时调小。"
       },
       "variation": {
-        "tooltip": "修改后，下次运行视频时会请求另一种提示词改写。"
+        "tooltip": "修改后重新请求分段提示词。提示词、时长和 API 设置不变时（例如只改了 seed），Long Video 复用之前规划的提示词。"
       },
       "log_prompts": {
         "tooltip": "采样前将可读的原始/最终提示词保存到 output/h3_prompt_logs；详细回复和用量在同名 JSON 中。不包含密钥、请求头和推理内容。"
+      },
+      "local_llm": {
+        "tooltip": "本地大模型与 H3 共用本机显存：每次请求前卸载 ComfyUI 模型，LLM 用完后请求 unload_url。auto：api_url 指向本机（localhost、127.0.0.1）时为 yes。"
+      },
+      "unload_url": {
+        "tooltip": "仅本地大模型。提示词规划或 AI 整理结束后 POST 此地址，让 LLM 服务在 H3 采样前释放显存，例如 llama-swap：http://127.0.0.1:8081/api/models/unload。服务会自动卸载空闲模型时留空。"
       }
     }
   },

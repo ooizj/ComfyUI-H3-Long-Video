@@ -41,6 +41,7 @@ from .long_video import (
 from .prompt_planner import (
     NODE_CLASS_MAPPINGS as _PLANNER_CLASSES,
     NODE_DISPLAY_NAME_MAPPINGS as _PLANNER_NAMES,
+    register_model_routes,
 )
 from .prompt_builder import (
     NODE_CLASS_MAPPINGS as _BUILDER_CLASSES,
@@ -64,6 +65,7 @@ NODE_CLASS_MAPPINGS.update(_BACKUP_CLASSES)
 NODE_DISPLAY_NAME_MAPPINGS.update(_BACKUP_NAMES)
 register_chain_routes()
 register_backup_routes()
+register_model_routes()
 
 logging.getLogger("h3_motion_context").info(
     "h3_motion_context: nodes registered. ComfyUI is not modified; the "

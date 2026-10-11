@@ -18,7 +18,7 @@ import folder_paths
 from comfy_api.latest import io
 
 from .prompt_log import new_prompt_log_path, prompt_request_log, prompt_trace_text, write_prompt_log
-from .prompt_planner import chat_endpoint, read_json_message, request_chat
+from .prompt_planner import chat_endpoint, fields_schema, json_schema_format, read_json_message, release_llm, request_chat
 from .prompt_timing import FULL_WIDTH_SPEAKER, dialogue_lines
 
 FIELDS = (
@@ -232,10 +232,13 @@ def rewrite_fields(fields, picture_count, config, image_paths=(), log_path=None,
     _LOG.info("H3 Prompt Builder: %s, %d images, %.1f KiB JPEG", payload["model"], len(pictures), sum(p["jpeg_bytes"] for p in pictures) / 1024)
     try:
         if config.get("json_mode", True):
-            payload["response_format"] = {"type": "json_object"}
+            # Local servers constrain decoding to the six fields; cloud APIs keep plain JSON mode.
+            payload["response_format"] = (json_schema_format("h3_fields", fields_schema(FIELDS))
+                                          if config.get("local_llm", False) else {"type": "json_object"})
         key = config.get("api_key", "").strip()
         data = request_chat(chat_endpoint(config["api_url"]), payload,
-                            {"Authorization": f"Bearer {key}"} if key else {}, config.get("timeout_seconds", 600))
+                            {"Authorization": f"Bearer {key}"} if key else {}, config.get("timeout_seconds", 600),
+                            local_llm=config.get("local_llm", False))
         values = read_json_message(data, responses, "H3 fields")
         if not isinstance(values, dict) or any(not isinstance(values.get(name), str) for name in FIELDS):
             raise ValueError("AI did not return all six text fields. The original is unchanged; retry or increase max_tokens.")
@@ -246,6 +249,7 @@ def rewrite_fields(fields, picture_count, config, image_paths=(), log_path=None,
             raise ValueError("AI changed or dropped <d> dialogue. The original is unchanged; retry.")
         return result
     finally:
+        release_llm(config.get("local_llm", False), config.get("unload_url", ""))
         if config.get("log_prompts", True):
             save_builder_log(fields, result, pictures, payload["model"], time.monotonic() - started,
                              responses, config.get("api_key", ""), payload, log_path, sys.exception() if result is None else None)

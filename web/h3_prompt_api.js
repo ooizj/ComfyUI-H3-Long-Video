@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 import { localizer, t } from "./h3_i18n.js";
 
 const style = document.createElement("style");
@@ -69,10 +70,66 @@ function install(node) {
   setVisible(false);
 }
 
+// The backend input stays a string; the dropdown lists what the API reports at /models.
+function installModels(node) {
+  if (node.h3Models) return;
+  const index = node.widgets.findIndex(widget => widget.name === "model");
+  const original = node.widgets[index];
+  const combo = node.addWidget("combo", "model", original.value || "default", original.callback, { values: [original.value || "default"] });
+  node.widgets.splice(node.widgets.indexOf(combo), 1);
+  node.widgets[index] = combo;
+  original.onRemove?.();
+  const value = name => node.widgets.find(widget => widget.name === name)?.value ?? "";
+  let latest = 0;
+  // keepSaved keeps a loaded workflow's model even if the API does not list it right now.
+  const refresh = async keepSaved => {
+    const request = ++latest;
+    let models = [];
+    try {
+      const response = await api.fetchApi("/h3_motion_context/models", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_url: value("api_url"), api_key: value("api_key") }),
+      });
+      models = (await response.json()).models ?? [];
+    } catch {}
+    if (request !== latest) return;
+    const values = models.length ? [...models] : ["default"];
+    if (!values.includes(combo.value)) {
+      if (keepSaved && combo.value) values.unshift(combo.value);
+      else { combo.value = values[0]; node.graph?.change(); }
+    }
+    combo.options.values = values;
+    node.setDirtyCanvas(true);
+  };
+  let timer;
+  for (const name of ["api_url", "api_key"]) {
+    const widget = node.widgets.find(w => w.name === name);
+    const callback = widget.callback;
+    widget.callback = function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => refresh(false), 600);
+      return callback?.apply(this, args);
+    };
+  }
+  const button = node.addWidget("button", "refresh_models", null, () => refresh(false));
+  button.label = t("刷新模型列表", "Refresh model list");
+  button.serialize = false;
+  node.h3Models = { refresh };
+}
+
 app.registerExtension({
   name: "H3MotionContext.PromptAPI",
-  nodeCreated(node) { if (node.comfyClass === "MiniMaxH3PromptAPI") install(node); },
+  nodeCreated(node) {
+    if (node.comfyClass !== "MiniMaxH3PromptAPI") return;
+    install(node);
+    installModels(node);
+    node.h3Models.refresh(false);
+  },
   loadedGraphNode(node) {
-    if (node.comfyClass === "MiniMaxH3PromptAPI") { install(node); node.h3ApiKey.hide(); }
+    if (node.comfyClass !== "MiniMaxH3PromptAPI") return;
+    install(node);
+    installModels(node);
+    node.h3ApiKey.hide();
+    node.h3Models.refresh(true);
   },
 });

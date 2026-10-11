@@ -142,11 +142,18 @@ def main():
             pass
         else:
             raise AssertionError("API failure must propagate")
+    local = {**config, "local_llm": True, "unload_url": "http://127.0.0.1:8081/api/models/unload"}
+    with patch.object(builder, "request_chat", return_value=response) as request, patch.object(builder, "release_llm") as release:
+        builder.rewrite_fields(fields, 2, local)
+        assert request.call_args.kwargs["local_llm"] is True
+        schema = request.call_args.args[1]["response_format"]["json_schema"]["schema"]
+        assert schema["required"] == list(builder.FIELDS) and schema["additionalProperties"] is False
+        release.assert_called_once_with(True, "http://127.0.0.1:8081/api/models/unload")
     reports = [json.loads(p.read_text(encoding="utf-8")) for p in manual_path.parent.glob("*.json")]
     failure, = [r for r in reports if r["status"] == "failed"]
     assert failure["requests"][0]["messages"][0]["content"] == builder.SYSTEM_PROMPTS["English"]
     assert failure["error"] == "RuntimeError: API unavailable" and failure["final_prompt"] is None
-    print("PASS: manual text, image batch/order, file cache, path containment, compressed vision payload, EXIF/size/original preservation, safe logs, vision opt-out, output language, API contract, invalid AI response")
+    print("PASS: manual text, image batch/order, file cache, path containment, compressed vision payload, EXIF/size/original preservation, safe logs, vision opt-out, output language, API contract, invalid AI response, local LLM unload")
 
 
 if __name__ == "__main__":

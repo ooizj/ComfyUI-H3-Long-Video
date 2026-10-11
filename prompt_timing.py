@@ -8,35 +8,94 @@ from comfy_extras.nodes_minimax_h3 import align_frame_count
 
 
 _DIALOGUE = re.compile(r"<d>(.*?)</d>", re.DOTALL)
+_LANGUAGE = re.compile(r"\s*(\[[^\]]*\]\s*)?")
+_PAUSE = re.compile(r"(?<=[。！？；，、…])|(?<=[.!?;,])(?=\s)")
+# When another line follows directly, a segment may end this many frames before a line's stated end
+# (at most half the line). H3 segment lengths step by 17 frames, so such lines still leave a cut point
+# between them; the earlier line just has to finish up to 0.67s sooner than stated.
+LINE_END_SLACK = 16
 FULL_WIDTH_SPEAKER = re.compile(r"（(S\d+)）")
-FIRST_FRAME_INSTRUCTION = "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced."
+EVENT_KINDS = ("cut", "action", "sound", "music")
+FIRST_FRAME_INSTRUCTION ="For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced."
 
 
 def dialogue_lines(text):
     return Counter(line.strip() for line in _DIALOGUE.findall(text))
 
 
+def valid_seconds(start, end):
+    return (type(start) in (int, float) and type(end) in (int, float)
+            and math.isfinite(start) and math.isfinite(end) and 0 <= start <= end)
+
+
 def validate_timeline(timeline, source):
-    events = timeline.get("speech") if isinstance(timeline, dict) else None
-    if not isinstance(events, list):
+    """Return (speech, events): timed speech copied from the source, and the other timed details."""
+    speech = timeline.get("speech") if isinstance(timeline, dict) else None
+    if not isinstance(speech, list):
         raise RuntimeError("LLM must return a speech list.")
-    for event in events:
+    for event in speech:
         if not isinstance(event, dict):
             raise RuntimeError("LLM returned an invalid speech range.")
         passage = event.get("text")
         if not isinstance(passage, str) or not passage.strip() or passage not in source:
             raise RuntimeError("LLM speech text was changed or is missing from the original prompt.")
         start, end = event.get("start_seconds"), event.get("end_seconds")
-        if (type(start) not in (int, float) or type(end) not in (int, float)
-                or not math.isfinite(start) or not math.isfinite(end)
-                or start < 0 or end <= start):
+        if not valid_seconds(start, end) or end == start:
             raise RuntimeError("LLM returned invalid speech start/end seconds.")
-    return events
+    # Plain JSON mode cannot force the events list; without it clips simply get no event times.
+    events = timeline.get("events", [])
+    if not isinstance(events, list) or any(
+            not isinstance(e, dict) or e.get("kind") not in EVENT_KINDS
+            or not isinstance(e.get("text"), str) or not e["text"].strip()
+            or not valid_seconds(e.get("start_seconds"), e.get("end_seconds")) for e in events):
+        raise RuntimeError("LLM returned an invalid timed event. Change variation and retry.")
+    return speech, events
+
+
+def split_long_speech(events, source, seconds):
+    """Split timed lines longer than one segment at their pauses, so segments can end between the parts.
+
+    Parts get time in proportion to their text. A single <d> block becomes adjacent <d> blocks, so the
+    source with those blocks is returned for writing and checking the clip prompts."""
+    parts = []
+    for event in events:
+        start, end, text = event["start_seconds"], event["end_seconds"], event["text"]
+        blocks = list(_DIALOGUE.finditer(text))
+        if end - start <= seconds or len(blocks) > 1:
+            parts.append(event)
+            continue
+        if blocks:
+            inner = blocks[0].group(1)
+            language = _LANGUAGE.match(inner).group(0)
+            before, after, body = text[:blocks[0].start()], text[blocks[0].end():], inner[len(language):]
+        else:
+            language, before, after, body = "", "", "", text
+        groups, length = [""], 0
+        for phrase in _PAUSE.split(body):
+            weight = len(phrase.strip()) * (end - start) / max(1, len(body.strip()))
+            if phrase.strip() and groups[-1].strip() and length + weight > seconds / 2:
+                groups.append("")
+                length = 0
+            groups[-1] += phrase
+            length += weight
+        if len(groups) == 1:
+            parts.append(event)
+            continue
+        texts = [f"<d>{language}{g.strip()}</d>" if blocks else g for g in groups]
+        texts[0], texts[-1] = before + texts[0], texts[-1] + after
+        source = source.replace(text, "".join(texts), 1)
+        done, total = 0, sum(len(g.strip()) for g in groups)
+        for group, part in zip(groups, texts):
+            parts.append({"start_seconds": round(start + (end - start) * done / total, 2),
+                          "end_seconds": round(start + (end - start) * (done + len(group.strip())) / total, 2), "text": part})
+            done += len(group.strip())
+    return parts, source
 
 
 def protect_dialogue_boundaries(schedule, events, fps):
-    ranges = [(round(e["start_seconds"] * fps), round(e["end_seconds"] * fps))
-              for e in events]
+    ranges = [(round(e["start_seconds"] * fps), round(e["end_seconds"] * fps)) for e in events]
+    ranges = [(a, b - min(LINE_END_SLACK, (b - a) // 2)) if any(a < c <= b + LINE_END_SLACK for c, _ in ranges) else (a, b)
+              for a, b in ranges]
     original = [(s["sampled_frames"], s["overlap_frames"], s["retained_frames"]) for s in schedule]
     if not ranges:
         return original
@@ -81,7 +140,10 @@ def protect_dialogue_boundaries(schedule, events, fps):
 def validate_prompts(prompts, schedule, events, source, input_mode):
     if (not isinstance(prompts, list) or len(prompts) != len(schedule)
             or any(not isinstance(p, str) or not p.strip() for p in prompts)):
-        raise RuntimeError(f"LLM must return {len(schedule)} nonempty prompts.")
+        got = (f"{sum(isinstance(p, str) and bool(p.strip()) for p in prompts)} nonempty of {len(prompts)}"
+               if isinstance(prompts, list) else "no prompts list")
+        raise RuntimeError(f"LLM must return {len(schedule)} nonempty prompts, one per segment; it returned {got}. "
+                           "Change variation and retry, or use a stronger model.")
     if dialogue_lines(source) != dialogue_lines("\n".join(prompts)):
         raise RuntimeError("LLM changed, omitted or repeated quoted <d> dialogue. Change variation and retry.")
     owners = {}

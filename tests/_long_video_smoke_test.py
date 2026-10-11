@@ -159,11 +159,17 @@ def test_prompt_api():
         }}], "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}}
         return result
 
+    def split(*args, **kwargs):
+        # These checks repeat inputs on purpose; start each one without earlier planning results.
+        planner._PLAN_CACHE.clear()
+        return planner.split_prompts(*args, **kwargs)
+
     with patch.object(planner.requests, "post") as post:
         settings, = planner.MiniMaxH3PromptAPI.execute(api_key="smoke-test-placeholder").result
         post.assert_not_called()
+        assert settings["local_llm"] is False and settings["unload_url"] == ""
         post.side_effect = [response(timeline), response({"prompts": expected})]
-        assert planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings) == (schedule, expected)
+        assert split(full_prompt, schedule, "Ref2VA", 3, **settings) == (schedule, expected)
         assert post.call_count == 2
         first, second = post.call_args_list
         assert first.args == ("https://api.deepseek.com/chat/completions",)
@@ -198,16 +204,89 @@ def test_prompt_api():
 
         local_settings, = planner.MiniMaxH3PromptAPI.execute(api_url="http://localhost:1234/v1/chat/completions",
             model="local-model", json_mode=False, max_tokens=4096, timeout_seconds=60).result
+        assert local_settings["local_llm"] is True
         post.side_effect = [response(timeline), response("```json\n" + json.dumps({"prompts": expected}) + "\n```")]
-        prompts = planner.split_prompts(full_prompt, schedule, "I2VA", 0, **local_settings)[1]
+        with patch.object(planner.comfy.model_management, "unload_all_models") as unload_comfy:
+            prompts = split(full_prompt, schedule, "I2VA", 0, **local_settings)[1]
+            assert unload_comfy.call_count == 2
         assert prompts[0].startswith("For the target video, at 0.00 seconds")
         assert not prompts[1].startswith("For the target video")
         assert post.call_args.args == ("http://localhost:1234/v1/chat/completions",)
         assert post.call_args.kwargs["headers"] == {} and post.call_args.kwargs["timeout"] == (10, 60)
         assert "response_format" not in post.call_args.kwargs["json"]
         assert "thinking" not in post.call_args.kwargs["json"]
+
+        for url, choice, local in [("http://127.0.0.1:8081/v1", "auto", True), ("http://[::1]:8081/v1", "auto", True),
+                                   ("http://192.168.1.5:8081/v1", "auto", False), ("https://api.deepseek.com", "yes", True),
+                                   ("http://127.0.0.1:8081/v1", "no", False)]:
+            assert planner.MiniMaxH3PromptAPI.execute(api_url=url, local_llm=choice).result[0]["local_llm"] is local
+        swap, = planner.MiniMaxH3PromptAPI.execute(api_url="http://127.0.0.1:8081/v1", model="qwen",
+            unload_url="http://127.0.0.1:8081/api/models/unload", json_mode=False).result
+        post.reset_mock()
+        post.side_effect = [response(timeline), response({"prompts": expected}), MagicMock()]
+        with patch.object(planner.comfy.model_management, "unload_all_models"):
+            assert split(full_prompt, schedule, "Ref2VA", 3, **swap)[1] == expected
+        assert [c.args[0] for c in post.call_args_list] == ["http://127.0.0.1:8081/v1/chat/completions"] * 2 + ["http://127.0.0.1:8081/api/models/unload"]
+        post.reset_mock()
+        post.side_effect = [response(timeline), response({}, status=500), MagicMock()]
+        with patch.object(planner.comfy.model_management, "unload_all_models"):
+            try:
+                split(full_prompt, schedule, "Ref2VA", 3, **swap)
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("A failed local request must propagate")
+        assert post.call_args.args == ("http://127.0.0.1:8081/api/models/unload",)
+
+        # Local servers get schema-constrained JSON; section fields are joined like the Builder does.
+        structured, = planner.MiniMaxH3PromptAPI.execute(api_url="http://127.0.0.1:8081/v1", model="qwen").result
+        sections = planner.SECTIONS["Ref2VA"]
+        clips = [{**dict.fromkeys(sections, "N/A"), "detailed_description": text} for text in expected]
+        post.reset_mock()
+        post.side_effect = [response(timeline), response({"prompts": clips})]
+        with patch.object(planner.comfy.model_management, "unload_all_models"):
+            prompts = split(full_prompt, schedule, "Ref2VA", 3, **structured)[1]
+        assert prompts[1] == "\n\n".join(f"{name}:\n{expected[1] if name == 'detailed_description' else 'N/A'}" for name in sections)
+        timeline_call, prompts_call = post.call_args_list
+        assert timeline_call.kwargs["json"]["response_format"]["json_schema"]["schema"] == planner.TIMELINE_SCHEMA
+        clip_schema = prompts_call.kwargs["json"]["response_format"]["json_schema"]["schema"]["properties"]["prompts"]
+        assert clip_schema["minItems"] == clip_schema["maxItems"] == 2 and clip_schema["items"]["required"] == list(sections)
+        assert prompts_call.kwargs["json"]["messages"][0]["content"] == planner.SYSTEM_PROMPT + planner.STRUCTURED_NOTE
+
+        # The LLM finds timed events; each clip gets them with local times calculated by code.
+        events = [{"kind": "action", "start_seconds": 11, "end_seconds": 14, "text": "they toast"},
+                  {"kind": "cut", "start_seconds": 7.5, "end_seconds": 7.5, "text": "cut to the glasses"},
+                  {"kind": "music", "start_seconds": 2, "end_seconds": 14, "text": "piano from 2 seconds"}]
+        post.reset_mock()
+        post.side_effect = [response({**timeline, "events": events}), response({"prompts": expected})]
+        split(full_prompt, schedule, "Ref2VA", 3, **settings)
+        assert json.loads(post.call_args_list[0].kwargs["json"]["messages"][1]["content"])["total_seconds"] == 14
+        clips = json.loads(post.call_args.kwargs["json"]["messages"][1]["content"])["clips"]
+        assert clips[0]["events"] == [{"kind": "cut", "local_time": "00:07.500", "text": "cut to the glasses"},
+                                      {"kind": "music", "local_seconds": [2, 8], "text": "piano from 2 seconds"}]
+        assert clips[1]["events"] == [
+            {"kind": "action", "local_seconds": [3.92, 6.92], "text": "they toast"},
+            {"kind": "cut", "local_time": "00:00.417", "text": "cut to the glasses"},
+            {"kind": "music", "local_seconds": [0, 6.92], "text": "piano from 2 seconds", "ongoing_at_local_zero": True}]
+        for bad in [{"kind": "lighting"}, {"end_seconds": 1}, {"text": " "}, "cut"]:
+            post.side_effect = [response({**timeline, "events": [events[0] | bad if isinstance(bad, dict) else bad]})]
+            try:
+                split(full_prompt, schedule, "Ref2VA", 3, **settings)
+            except RuntimeError as error:
+                assert "invalid timed event" in str(error)
+            else:
+                raise AssertionError("Invalid timed events must fail")
+
+        post.reset_mock()
+        post.side_effect = [response(timeline), response({"prompts": expected})]
+        first = split(full_prompt, schedule, "Ref2VA", 3, **settings)
+        assert planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings) == first and post.call_count == 2
+        post.side_effect = [response(timeline), response({"prompts": expected})]
+        planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **(settings | {"variation": 1}))
+        assert post.call_count == 4
+
         post.side_effect = [response(timeline), response({"prompts": [expected[0].replace("the man", "<Subject 1>（S1）"), expected[1]]})]
-        prompts = planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings)[1]
+        prompts = split(full_prompt, schedule, "Ref2VA", 3, **settings)[1]
         assert prompts[0].startswith("From 0 to 3 seconds, <Subject 1>(S1) says") and "（" not in prompts[0]
 
         invalid = [
@@ -218,14 +297,14 @@ def test_prompt_api():
         for content in invalid:
             post.side_effect = [response(timeline), response(content)]
             try:
-                planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings)
+                split(full_prompt, schedule, "Ref2VA", 3, **settings)
             except RuntimeError:
                 pass
             else:
                 raise AssertionError("Bad prompts must fail before sampling")
         post.side_effect = [response(timeline), response({}, finish="length")]
         try:
-            planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings)
+            split(full_prompt, schedule, "Ref2VA", 3, **settings)
         except RuntimeError as error:
             assert "truncated" in str(error)
         else:
@@ -236,7 +315,7 @@ def test_prompt_api():
         post.reset_mock()
         untimed = ["They fly over the clouds.", "They keep flying above the clouds."]
         post.side_effect = [response({"speech": []}), response({"prompts": untimed})]
-        assert planner.split_prompts("They fly over the clouds.", schedule, "T2VA", 0, **settings) == (schedule, untimed)
+        assert split("They fly over the clouds.", schedule, "T2VA", 0, **settings) == (schedule, untimed)
         assert post.call_count == 2
         assert all(not clip["speech"] for clip in json.loads(post.call_args.kwargs["json"]["messages"][1]["content"])["clips"])
         for bad in [
@@ -247,37 +326,75 @@ def test_prompt_api():
         ]:
             post.side_effect = [response(bad)]
             try:
-                planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings)
+                split(full_prompt, schedule, "Ref2VA", 3, **settings)
             except RuntimeError:
                 pass
             else:
                 raise AssertionError("Invalid speech data must fail")
         files_before = set(log_directory.iterdir())
         post.side_effect = [response(timeline), response({"prompts": expected})]
-        planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **(settings | {"log_prompts": False}))
+        split(full_prompt, schedule, "Ref2VA", 3, **(settings | {"log_prompts": False}))
         assert set(log_directory.iterdir()) == files_before
         continuous = 'From 0-14s the speaker says <d>[Chinese] 你好！</d>.'
         post.reset_mock()
         post.side_effect = [response({"speech": [dict(speech[0], end_seconds=14)]})]
-        final_schedule, final_prompts = planner.split_prompts(
-            continuous, planner.segment_schedule(long.plan_segments(14, 5, 22)), 'Ref2VA', 3, **settings)
+        with patch.object(planner._LOG, "warning") as warning:
+            final_schedule, final_prompts = split(
+                continuous, planner.segment_schedule(long.plan_segments(14, 5, 22)), 'Ref2VA', 3, **settings)
         assert len(final_schedule) == 1 and final_prompts == [continuous] and post.call_count == 1
+        assert warning.call_count == 1 and "so no timed line is cut" in warning.call_args.args[0]
+        line = '<d>[Chinese] 你好，见到你很高兴。我们一起去山上看日出吧，好不好？</d>'
+
+        def reply(url, **kwargs):
+            request = json.loads(kwargs["json"]["messages"][1]["content"])
+            if "clips" not in request:
+                return response({"speech": [{"start_seconds": 0, "end_seconds": 14, "text": line}]})
+            assert line not in request["full_h3_prompt"]
+            return response({"prompts": [" ".join(s["text"] for s in clip["speech"]) or "They listen." for clip in request["clips"]]})
+        post.side_effect = reply
+        final_schedule, final_prompts = split("From 0-14s the speaker says " + line,
+                                              planner.segment_schedule(long.plan_segments(14, 5, 22)), "Ref2VA", 3, **settings)
+        assert len(final_schedule) == 3 and "".join(final_prompts).count("<d>") == 4
         post.side_effect = [response({}, status=401)]
         try:
-            planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings)
+            split(full_prompt, schedule, "Ref2VA", 3, **settings)
         except RuntimeError as error:
             assert "401" in str(error) and "smoke-test-placeholder" not in str(error)
         else:
             raise AssertionError("HTTP errors must propagate")
+        rejected = MagicMock(status_code=500)
+        rejected.__enter__.return_value = rejected
+        rejected.json.return_value = {"error": {"code": 500, "message": "image input is not supported - hint: provide the mmproj"}}
+        post.side_effect = [rejected]
+        try:
+            split(full_prompt, schedule, "Ref2VA", 3, **settings)
+        except RuntimeError as error:
+            assert "HTTP 500: image input is not supported" in str(error)
+        else:
+            raise AssertionError("HTTP errors must propagate")
+        post.side_effect = [response(timeline), response({"prompts": [expected[0], expected[1], "summary:"]})]
+        try:
+            split(full_prompt, schedule, "Ref2VA", 3, **settings)
+        except RuntimeError as error:
+            assert "must return 2 nonempty prompts" in str(error) and "returned 3 nonempty of 3" in str(error)
+        else:
+            raise AssertionError("A wrong prompt count must fail")
     with patch.object(planner.requests, "post") as post:
         for url in ["file:///tmp/key", "https://name:secret@example.test/v1", ""]:
             try:
-                planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **(settings | {"api_url": url}))
+                split(full_prompt, schedule, "Ref2VA", 3, **(settings | {"api_url": url}))
             except ValueError as error:
                 assert "API URL" in str(error) and "secret" not in str(error)
             else:
                 raise AssertionError("Invalid API URLs must fail before a request")
         post.assert_not_called()
+    with patch.object(planner.requests, "get") as get:
+        get.return_value.__enter__.return_value.json.return_value = {"object": "list", "data": [{"id": "qwen-a"}, {"id": "qwen-b"}]}
+        assert planner.list_api_models("https://api.deepseek.com", " key ") == ["qwen-a", "qwen-b"]
+        assert get.call_args.args == ("https://api.deepseek.com/models",)
+        assert get.call_args.kwargs["headers"] == {"Authorization": "Bearer key"} and get.call_args.kwargs["allow_redirects"] is False
+        planner.list_api_models("http://127.0.0.1:8081/v1/chat/completions?x=1", "")
+        assert get.call_args.args == ("http://127.0.0.1:8081/v1/models?x=1",) and get.call_args.kwargs["headers"] == {}
     return settings
 
 
@@ -289,16 +406,31 @@ def test_dialogue_boundaries():
               for (a, b), p in zip([(8, 11), (11, 14)], passages)]
     schedule = planner.segment_schedule(long.plan_segments(14, 5, 22))
     plan = timing.protect_dialogue_boundaries(schedule, events, 24)
-    assert plan == [(124, 0, 124), (90, 22, 68), (175, 22, 144)]
+    # The lines follow each other directly, so the cut lands just before the first one's stated end.
+    assert plan == [(124, 0, 124), (158, 22, 136), (107, 22, 76)]
     adjusted = planner.segment_schedule(plan)
-    assert adjusted[1]['final_end_seconds'] == 8
+    assert adjusted[1]['final_end_seconds'] == 260 / 24
     assert adjusted[2]['final_end_seconds'] == 14
     assert sum(p[2] for p in plan) == 336
     assert all(length % 17 == 5 and keep == length - overlap for length, overlap, keep in plan[:-1])
-    windows = planner.prompt_windows(adjusted, events)
-    assert not windows[1]['speech']
-    assert [e['local_seconds'] for e in windows[2]['speech']] == [[0.92, 3.92], [3.92, 6.92]]
+    windows = planner.prompt_windows(adjusted, events, [])
+    assert [e['local_seconds'] for e in windows[1]['speech']] == [[3.75, 6.58]]
+    assert [e['local_seconds'] for e in windows[2]['speech']] == [[1.08, 4.08]]
     assert schedule[1]['final_end_seconds'] == 226 / 24
+    # Three back-to-back lines filling 10 s still split into two segments instead of one 10 s segment.
+    touching = [dict(events[0], start_seconds=a, end_seconds=b) for a, b in [(0, 3), (3, 6), (6, 10)]]
+    assert len(timing.protect_dialogue_boundaries(planner.segment_schedule(long.plan_segments(10, 5, 22)), touching, 24)) == 2
+
+    # A line longer than a segment is split at its punctuation, each part a <d> block with proportional time.
+    narration = "旁白：<d>[Chinese] 很久以前，山上住着一位剑客。他每天清晨看日出，从不下山。</d>"
+    parts, split_source = timing.split_long_speech([{"start_seconds": 0, "end_seconds": 12, "text": narration}], "开场。" + narration, 5.2)
+    assert [p["text"] for p in parts] == ["旁白：<d>[Chinese] 很久以前，</d>", "<d>[Chinese] 山上住着一位剑客。</d>",
+                                          "<d>[Chinese] 他每天清晨看日出，</d>", "<d>[Chinese] 从不下山。</d>"]
+    assert split_source == "开场。" + "".join(p["text"] for p in parts)
+    assert parts[0]["start_seconds"] == 0 and parts[-1]["end_seconds"] == 12
+    assert all(a["end_seconds"] == b["start_seconds"] for a, b in zip(parts, parts[1:]))
+    short = {"start_seconds": 0, "end_seconds": 5, "text": narration}
+    assert timing.split_long_speech([short], narration, 5.2) == ([short], narration)
 
     for context in (5, 22, 39, 56):
         initial = planner.segment_schedule(long.plan_segments(30, 5, context))
@@ -504,7 +636,7 @@ def main():
             assert set(Path(temp).iterdir()) == files_before
         finally:
             folder_paths.set_temp_directory(original_temp)
-    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup")
+    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup")
 
 
 if __name__ == "__main__":
