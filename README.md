@@ -89,7 +89,19 @@ The screenshot uses `total_seconds=14` and `segment_seconds=7` to generate an ap
 
 Each short segment is sampled separately with its own time starting at zero. Giving every segment the whole story can repeat opening actions/dialogue or confuse whole-video times with the current segment's times.
 
-With `prompt_api` connected, the node analyzes the timeline and dialogue, then adapts the full prompt to each segment's content. It converts whole-video times to segment-local times, accounts for overlap, and can adjust boundaries to avoid cutting a spoken line. Write explicit whole-video time ranges and dialogue in your source prompt; without them, the story is spread over the segments in order. Segment prompts keep the source's description language.
+With `prompt_api` connected:
+
+1. The LLM lists the prompt's timed dialogue, cuts, actions, sounds and music.
+2. The node places segment boundaries without cutting a spoken line, then converts the whole-video times to each segment's local times, accounting for overlap.
+3. The LLM adapts the full prompt to each segment using these times, in the source's description language.
+
+Segment boundaries:
+
+- Between lines that follow each other directly, a segment may end up to 0.67 s before the earlier line's stated end.
+- A line longer than a segment is split at its punctuation, with time in proportion to the text.
+- When no cut point is close enough, the segment becomes longer than `segment_seconds`, and the console warns because it needs more VRAM.
+
+Write explicit whole-video time ranges and dialogue in your source prompt; without them, the story is spread over the segments in order.
 
 **If prompt splitting is not needed, disconnect Long Video's `prompt_api`: video generation still runs in segments, each reuses the original prompt, and no prompt API is called during video generation.**
 
@@ -98,8 +110,19 @@ With `prompt_api` connected, the node analyzes the timeline and dialogue, then a
 | `prompt_api` disconnected | No; the prompt is not split. |
 | Only one segment is actually needed, even with `prompt_api` connected | No; uses the original prompt directly. |
 | `prompt_api` connected and multiple segments needed | Yes; analyzes timing, then rewrites segment prompts. Without explicit times, events are spread over the segments in story order. |
+| Same prompt, duration and API settings as a recent run, e.g. only the seed changed | No; reuses the segment prompts planned then. Change Prompt API's `variation` for new ones. |
 
 Builder's AI buttons are independent and still call their connected API when clicked. Omitting timestamps does not disable API calls; disconnect Long Video's `prompt_api` to skip automatic prompt splitting.
+
+### H3 Prompt API: cloud or local models
+
+`model` lists the models the API reports at its `/models` endpoint, refreshed when `api_url` or `api_key` changes or with **Refresh model list**; it shows `default` when the API lists none. Cloud APIs and local servers (llama.cpp / llama-swap, Ollama, LM Studio) work the same way.
+
+A local LLM shares the GPU with H3. `local_llm` (advanced, `auto` by default) treats an `api_url` on this computer (`localhost`, `127.0.0.1`) as local: ComfyUI models are unloaded before each LLM request, and after prompt planning or an AI rewrite the node POSTs `unload_url` so the server frees its VRAM before sampling. For llama-swap use `http://127.0.0.1:8081/api/models/unload`; leave `unload_url` empty for a server that unloads idle models by itself.
+
+For a local LLM with `json_mode` on, requests carry a JSON schema, so llama.cpp, Ollama and LM Studio can only produce the expected structure: one object per segment with one field per prompt section, or the six Builder fields. The node writes the section names itself.
+
+Prompt splitting needs a capable model. In our tests, a local 27B dense model wrote the segment times correctly for timed dialogue, a cut and music, and DeepSeek did so for timed dialogue; a 35B-A3B MoE model sometimes dropped a cut, and 9B models often broke dialogue rules.
 
 With `log_prompts` enabled, logs go to `output/h3_prompt_logs/` (TXT + JSON): `*_builder` records editor input/output, `*_planner` records API planning, and `*_video` records final segment prompts/settings before sampling. Builder logging also requires its connected API's `log_prompts` to be enabled. `prepared` means ready for sampling only. The key mask hides its display, not its saved value; clear actual key fields before sharing workflows.
 

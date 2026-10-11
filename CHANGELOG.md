@@ -8,6 +8,36 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## 0.9.0 - 2026-10-11
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
+Workflows saved with 0.8.0 still load; the new Prompt API inputs use
+their defaults.
+
+- H3 Prompt API `model` is a dropdown of the models the API lists, with
+  `default` when it lists none.
+- Local LLMs: with `local_llm` (`auto` for localhost URLs), ComfyUI models
+  are unloaded before each LLM request, and the new `unload_url` is called
+  afterwards so the LLM frees VRAM before sampling.
+- Local LLMs get JSON-schema constrained output (exact segment count and
+  prompt sections; the six Builder fields), so small models no longer
+  return the wrong number of segments or drop section names.
+- Long Video prompt splitting: the LLM lists timed cuts, actions, sounds
+  and music as well as speech, and the node calculates each segment's
+  local times for them instead of leaving the subtraction to the LLM.
+  Cut markers are given ready-made, and events already in progress are
+  marked so later segments do not repeat their start time.
+- Back-to-back timed lines no longer merge the video into one long
+  segment: a segment may end up to 0.67 s before a line's stated end when
+  the next line follows directly, and a line longer than a segment is
+  split at its punctuation. The console warns when a segment still samples
+  longer than `segment_seconds`, since it needs more VRAM.
+- Clearer errors: the server's message for HTTP errors, and how many
+  segment prompts the LLM actually returned.
+- Long Video reuses recently planned segment prompts when the prompt,
+  duration and API settings are unchanged, e.g. when only the seed
+  changes. Change `variation` for new prompts.
+
 ## 0.8.0 - 2026-10-10
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.

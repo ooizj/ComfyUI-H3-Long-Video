@@ -89,7 +89,19 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 
 长视频按短段分别采样，每段都有从零开始的局部时间。若每段都收到整片剧情，后续段可能重复开场动作或对白，也可能把整片时间误当成当前段的时间。
 
-连接 `prompt_api` 后，节点先分析时间线和对白，再把整片提示词改写成各段需要的内容，将整片时间换算为段内时间，并计入重叠窗口；必要时调整分段边界，避免从一句对白中间切开。建议在原提示词里写清整片时间段和对白；没写时间时，按剧情顺序把内容分配到各段。分段提示词沿用原文的描述语言。
+连接 `prompt_api` 后：
+
+1. LLM 列出提示词中带时间的对白、切镜、动作、音效和音乐。
+2. 节点在不切断对白的位置分段，再把整片时间换算为各段的段内时间（计入重叠窗口）。
+3. LLM 按这些时间把整片提示词改写成各段需要的内容，沿用原文的描述语言。
+
+分段规则：
+
+- 两句对白紧挨着时，可以在前一句标注的结束时间之前最多 0.67 秒处分段。
+- 比一段还长的对白按标点拆开，时间按字数分配。
+- 附近找不到切点时，该段会长于 `segment_seconds`，控制台会提醒这一段需要更多显存。
+
+建议在原提示词里写清整片时间段和对白；没写时间时，按剧情顺序把内容分配到各段。
 
 **不需要拆分提示词时，断开 Long Video 的 `prompt_api` 即可：仍会自动分段生成视频，每段复用原提示词，整个视频生成过程不会调用提示词 API。**
 
@@ -98,8 +110,19 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 | 未连接 `prompt_api` | 不调用，不拆分提示词。 |
 | 实际只需生成一段，即使已连接 `prompt_api` | 不调用，直接使用原提示词。 |
 | 已连接 `prompt_api`，且需要多段 | 调用 API 分析时间线，再改写各段提示词。没有明确时间时，按剧情顺序把内容分配到各段。 |
+| 提示词、时长和 API 设置与最近一次相同，例如只改了 seed | 不调用，复用当时规划的各段提示词。需要新的提示词时修改 Prompt API 的 `variation`。 |
 
 Builder 的 AI 按钮是独立操作；点击时仍会调用它所连接的 API。仅仅不写时间戳不等于关闭 API，要跳过自动提示词拆分，应断开 Long Video 的 `prompt_api`。
+
+### H3 Prompt API：云端或本地模型
+
+`model` 下拉框列出 API 在 `/models` 接口报告的模型；修改 `api_url`、`api_key` 或点击 **刷新模型列表** 时更新，API 没有列出模型时显示 `default`。云端 API 和本地服务（llama.cpp / llama-swap、Ollama、LM Studio）用法相同。
+
+本地大模型与 H3 共用显卡。`local_llm`（高级选项，默认 `auto`）把指向本机（`localhost`、`127.0.0.1`）的 `api_url` 视为本地模型：每次请求 LLM 前先卸载 ComfyUI 模型；提示词规划或 AI 改写结束后向 `unload_url` 发送 POST，让服务在采样前释放显存。llama-swap 填 `http://127.0.0.1:8081/api/models/unload`；服务会自动卸载空闲模型时留空即可。
+
+本地大模型且开启 `json_mode` 时，请求会附带 JSON Schema，llama.cpp、Ollama、LM Studio 只能按规定结构输出：每段一个对象、每个提示词段落一个字段，Builder 则是六个字段；段落标题由节点自己写入。
+
+拆分提示词需要能力足够的模型。我们的测试中，本地 27B 稠密模型在定时对白、切镜和音乐上写出的段内时间都正确，DeepSeek 在定时对白上也都正确；35B-A3B MoE 模型有时漏掉切镜；9B 模型经常违反对白规则。
 
 启用 `log_prompts` 后，日志保存在 `output/h3_prompt_logs/`（TXT + JSON）：`*_builder` 是编辑器输入/输出，`*_planner` 是 API 规划记录，`*_video` 是采样前确定的各段提示词与设置。Builder 日志还需所连接 API 的 `log_prompts` 开启；`prepared` 仅表示准备采样。密钥遮罩只隐藏显示，分享工作流前应清空实际密钥字段。
 
