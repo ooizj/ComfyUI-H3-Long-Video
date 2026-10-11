@@ -97,7 +97,8 @@ detailed_description：先用一两句建立视觉风格与共同环境，再逐
 定时对白先核定说话所需时间，再补不挤占对白的动作。正文仍按原文事件先后叙述：
 若原文是先出现表情再说话，就先写这一表情变化，紧接说话者与台词；不要把台词放在
 段首后才补叙之前发生的动作或情绪。原台词逐字保留且只在所属时间段的 <d> 中出现一次。
-普通话台词写成“{speech_format}”；实际说话顺序决定稳定的
+每句台词写成“{speech_format}”，语言标签写台词本身的语言，例如 [English]、[Chinese]；
+原文用引号括起的台词同样逐字放进 <d>，不翻译。实际说话顺序决定稳定的
 (S1)、(S2)，同一人继续沿用；保留原有语言标签。完整句末加标点，放在 </d> 前。
 保持原文要求的动作顺序；只要求情绪加说话时，让表情简短变化后及时开口，
 不要擅自添加取放物品、点头、转身、长时间停顿等前置动作来推迟台词。
@@ -132,19 +133,19 @@ non_diegetic_music：只描述背景音乐；原文未要求音乐时填写 N/A�
 # English follows the official Ref2VA rewrite format; 中文 keeps the same structure with Chinese wording.
 SYSTEM_PROMPTS = {
     "English": _PROMPT.format(
-        language="六个字段的描述一律用英文书写，原文是中文也要译成英文；只有 <d> 内的台词、歌词和画面中"
-                 "可见的文字保留原语言，不翻译，也不附加译文。",
+        language="六个字段的描述一律用英文书写，原文是中文也要译成英文；只有台词、歌词和画面中"
+                 "可见的文字保留原语言，不翻译，也不附加译文：英文台词仍是英文，中文台词仍是中文。",
         subject_example="<Subject 3> is the prop in <Picture 5>, with its recognizable shape, color and structure.",
         retention_format="<Subject N> (appears in [Shot N]): fully_preserved - specific features to keep",
         range_format="From 起 to 止 seconds:",
-        speech_format="<Subject N> (Sx) says: <d>[Chinese] 原台词。</d>"),
+        speech_format="<Subject N> (Sx) says: <d>[台词语言] 原台词。</d>"),
     "中文": _PROMPT.format(
-        language="六个字段的描述一律用中文书写，原文是英文也要译成中文；只有 <d> 内的台词、歌词和画面中"
-                 "可见的文字保留原语言，不翻译，也不附加译文。",
+        language="六个字段的描述一律用中文书写，原文是英文也要译成中文；只有台词、歌词和画面中"
+                 "可见的文字保留原语言，不翻译，也不附加译文：英文台词仍是英文，中文台词仍是中文。",
         subject_example="<Subject 3> 道具（来源：<Picture 5>）：可辨认的外形、颜色和结构。",
         retention_format="<Subject N>（出现于 [Shot N]）：fully_preserved - 要保留的具体特征",
         range_format="起–止 秒：",
-        speech_format="<Subject N> (Sx) 说：<d>[Chinese] 原台词。</d>"),
+        speech_format="<Subject N> (Sx) 说：<d>[台词语言] 原台词。</d>"),
 }
 
 
@@ -175,6 +176,14 @@ def load_pictures(paths):
 
 def assemble_prompt(fields):
     return "\n\n".join(f"{name}:\n{fields[name]}" for name in FIELDS)
+
+
+_LANGUAGE_TAG = re.compile(r"^\s*\[[^\]]*\]")
+
+
+def spoken_words(text):
+    """Letters and digits only, so quotes, punctuation and case do not count as changed dialogue."""
+    return "".join(c for c in text.casefold() if c.isalnum())
 
 
 def picture_content(paths):
@@ -247,6 +256,10 @@ def rewrite_fields(fields, picture_count, config, image_paths=(), log_path=None,
             r"(?m)^([ \t]*\[Shot [1-9]\d*\] At \d{2}:\d{2}\.\d{3})[，,]?", r"\1,", result["detailed_description"])
         if dialogue_lines(assemble_prompt(fields)) - dialogue_lines(assemble_prompt(result)):
             raise ValueError("AI changed or dropped <d> dialogue. The original is unchanged; retry.")
+        # Dialogue the source only quotes must still be its own words, not a translation.
+        source_words = spoken_words(assemble_prompt(fields))
+        if any(spoken_words(_LANGUAGE_TAG.sub("", line)) not in source_words for line in dialogue_lines(assemble_prompt(result))):
+            raise ValueError("AI translated or invented <d> dialogue. The original is unchanged; retry or use a stronger model.")
         return result
     finally:
         release_llm(config.get("local_llm", False), config.get("unload_url", ""))

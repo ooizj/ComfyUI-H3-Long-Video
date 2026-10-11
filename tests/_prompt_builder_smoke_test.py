@@ -117,7 +117,7 @@ def main():
     normalized = {**malformed, "detailed_description": malformed["detailed_description"].replace("00:03.000\n", "00:03.000,\n").replace("00:06.000，", "00:06.000,").replace("（S1）", "(S1)")}
     response = {"choices": [{"message": {"content": json.dumps(malformed)}, "finish_reason": "stop"}]}
     with patch.object(builder, "request_chat", return_value=response):
-        assert builder.rewrite_fields(fields, 2, config) == normalized
+        assert builder.rewrite_fields(malformed, 2, config) == normalized
     assert builder.MiniMaxH3PromptBuilder.execute(**malformed, log_prompts=False)[0] == builder.assemble_prompt(malformed)
     with patch.object(builder, "request_chat", return_value={"choices": [{"message": {"content": "{}"}, "finish_reason": "stop"}]}):
         try:
@@ -135,6 +135,17 @@ def main():
             pass
         else:
             raise AssertionError("changed AI dialogue accepted")
+    # Quoted source dialogue may gain <d> tags and a language tag, but not a translation.
+    quoted = {**fields, "detailed_description": "From 0 to 3 seconds, Gugu Gaga says, “We’re flying!”"}
+    for line, accepted in [("<d>[English] We're flying!</d>", True), ("<d>[Chinese] 我们在飞！</d>", False)]:
+        result = {**quoted, "detailed_description": "From 0 to 3 seconds: <Subject 1> (S1) says: " + line}
+        with patch.object(builder, "request_chat", return_value={"choices": [{"message": {"content": json.dumps(result)}, "finish_reason": "stop"}]}):
+            try:
+                builder.rewrite_fields(quoted, 0, config)
+            except ValueError as error:
+                assert not accepted and "translated" in str(error)
+            else:
+                assert accepted
     with patch.object(builder, "request_chat", side_effect=RuntimeError("API unavailable")):
         try:
             builder.rewrite_fields(fields, 0, {**config, "log_prompts": True})
@@ -144,7 +155,7 @@ def main():
             raise AssertionError("API failure must propagate")
     local = {**config, "local_llm": True, "unload_url": "http://127.0.0.1:8081/api/models/unload"}
     with patch.object(builder, "request_chat", return_value=response) as request, patch.object(builder, "release_llm") as release:
-        builder.rewrite_fields(fields, 2, local)
+        builder.rewrite_fields(malformed, 2, local)
         assert request.call_args.kwargs["local_llm"] is True
         schema = request.call_args.args[1]["response_format"]["json_schema"]["schema"]
         assert schema["required"] == list(builder.FIELDS) and schema["additionalProperties"] is False
