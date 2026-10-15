@@ -8,6 +8,14 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## 0.9.3 - 2026-10-15
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
+
+- H3 Long Video refuses to run a multi-segment video without `prompt_api`
+  instead of only warning: every segment would repeat the whole story.
+  Single-segment videos still run without it.
+
 ## 0.9.2 - 2026-10-15
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
