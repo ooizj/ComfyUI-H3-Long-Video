@@ -52,6 +52,25 @@ def validate_timeline(timeline, source):
     return speech, events
 
 
+def queue_shared_speech(events):
+    """Lines given the same source range, e.g. two speakers under one '40–65 秒' heading, are spoken one
+    after another in source order instead of all at once, each taking time in proportion to its text."""
+    shared = {}
+    for event in events:
+        shared.setdefault((event["start_seconds"], event["end_seconds"]), []).append(event)
+    for (start, end), lines in shared.items():
+        if len(lines) < 2:
+            continue
+        sizes = [len("".join(_LANGUAGE.sub("", d, count=1) for d in _DIALOGUE.findall(e["text"])) or e["text"])
+                 for e in lines]
+        done = 0
+        for event, size in zip(lines, sizes):
+            event["start_seconds"] = round(start + (end - start) * done / sum(sizes), 2)
+            done += size
+            event["end_seconds"] = round(start + (end - start) * done / sum(sizes), 2)
+    return events
+
+
 def split_long_speech(events, source, seconds):
     """Split timed lines longer than one segment at their pauses, so segments can end between the parts.
 

@@ -432,6 +432,12 @@ def test_dialogue_boundaries():
     short = {"start_seconds": 0, "end_seconds": 5, "text": narration}
     assert timing.split_long_speech([short], narration, 5.2) == ([short], narration)
 
+    # Two speakers listed under one '40–65 秒' heading talk in turn, not at once.
+    block = [{"start_seconds": 40, "end_seconds": 65, "text": "<d>[Chinese] 你是谁？</d>"},
+             {"start_seconds": 40, "end_seconds": 65, "text": "<d>[Chinese] 我是守了五百年的人。</d>"},
+             {"start_seconds": 65, "end_seconds": 70, "text": "<d>[Chinese] 走吧。</d>"}]
+    assert [(e["start_seconds"], e["end_seconds"]) for e in timing.queue_shared_speech(block)] == [(40, 47.14), (47.14, 65), (65, 70)]
+
     for context in (5, 22, 39, 56):
         initial = planner.segment_schedule(long.plan_segments(30, 5, context))
         speech = [dict(events[0], start_seconds=3.2, end_seconds=15.3)]

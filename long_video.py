@@ -157,6 +157,9 @@ class MiniMaxH3LongVideo(io.ComfyNode):
             input_mode = "Ref2VA" if reference_count else "I2VA" if first_frame is not None else "T2VA"
             schedule, prompts = split_prompts(prompt, schedule, input_mode, reference_count, **prompt_api)
             plan = [(s["sampled_frames"], s["overlap_frames"], s["retained_frames"]) for s in schedule]
+        elif len(plan) > 1:
+            _LOG.warning("H3 Long Video: prompt_api is not connected, so all %d segments reuse the whole prompt and the story "
+                         "repeats. Connect H3 Prompt API to split it into segments.", len(plan))
         _LOG.info("H3 Long Video: %.3fs output, %d segment(s), %.3fs sampled before trimming",
                   sum(keep for _, _, keep in plan) / FPS, len(plan), sum(length for length, _, _ in plan) / FPS)
         preview = prompt_preview(schedule, prompts)

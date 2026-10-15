@@ -20,7 +20,8 @@ from server import PromptServer
 from .csrf_guard import require_same_origin
 from .nodes import FPS
 from .prompt_log import new_prompt_log_path, prompt_request_log, prompt_trace_text, write_prompt_log
-from .prompt_timing import EVENT_KINDS, validate_timeline, split_long_speech, protect_dialogue_boundaries, validate_prompts
+from .prompt_timing import (EVENT_KINDS, validate_timeline, queue_shared_speech, split_long_speech,
+                            protect_dialogue_boundaries, validate_prompts)
 
 _LOG = logging.getLogger("h3_motion_context")
 
@@ -32,13 +33,17 @@ Return ONLY JSON: {"speech": [
 ]}.
 speech lists ONLY speech, narration or singing with explicit event times (not a total
 duration, age or ID), once per occurrence, in source order. Copy its exact <d>
-block(s), or exact spoken passage if untagged, into text. Use the entire
-enclosing source time range; do not estimate word timings. Omit untimed speech and
+block(s), or exact spoken passage if untagged, into text. Use the line's own time
+range, else the range of the shot it is in; do not estimate word timings. A time
+range heading several shots is a section, not one shot: divide it among those
+shots in source order, in proportion to their content, and give each shot's cut,
+actions and lines that shot's part. Omit untimed speech and
 point-only speech, since they have no known duration.
 events lists every other source detail with an explicit time, in source order: cuts
 (kind cut), visual actions and camera moves (action), sound effects (sound) and
 music changes (music). A cut or other single moment has end_seconds equal to
-start_seconds; a detail lasting from a time onward ends at total_seconds. text
+start_seconds; a detail lasting from a time onward ends with its shot or scene, or at
+total_seconds if neither ends. text
 briefly describes the detail in the source language, without its times or
 'from N seconds'. Omit the opening [Shot 1], untimed details,
 reference definitions and the speech already listed.
@@ -129,9 +134,11 @@ summaries start with [reference generation], since a first frame belongs only to
 the first clip. Before [Shot 1], establish the visual style in one or two
 sentences. [Shot 1] has no timestamp in any clip, including continuation clips;
 use the same local shot numbering and cut markers as above.
-Copy source subject definitions verbatim into every clip, including every
-<Subject N> to <Picture N> source binding, appearance and object feature.
-These IDs are independent: <Subject 3> can come from <Picture 5>; never rebind
+Copy source subject definitions verbatim, including every <Subject N> to
+<Picture N> source binding, appearance and object feature. A subject bound to a
+<Picture N> is defined in every clip. A text-only subject, such as a character,
+place or narrator without a picture, is defined only in clips where it is seen or
+heard, since H3 draws defined subjects into the clip. These IDs are independent: <Subject 3> can come from <Picture 5>; never rebind
 them by number. Keep speaker IDs stable. A four-view sheet is ONE person.
 reference_image_count is the actual number of reference images; a separate first
 frame is not another numbered reference. Only the first clip starts at the source
@@ -446,7 +453,7 @@ def plan_prompts(prompt, schedule, input_mode, reference_image_count, model, var
         timeline = read_json_message(request(timeline_payload), responses, "timeline")
         speech, events = validate_timeline(timeline, prompt)
         longest = max(s["sampled_seconds"] for s in schedule)
-        speech, source = split_long_speech(speech, prompt, longest)
+        speech, source = split_long_speech(queue_shared_speech(speech), prompt, longest)
         schedule = segment_schedule(protect_dialogue_boundaries(schedule, speech, FPS))
         for segment in schedule:
             if segment["sampled_seconds"] > longest:
