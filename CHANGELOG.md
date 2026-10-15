@@ -8,6 +8,27 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## 0.9.2 - 2026-10-15
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
+
+- H3 Long Video warns when a multi-segment video has no `prompt_api`:
+  every segment then reuses the whole prompt, so the story repeats.
+- Segment planning with Prompt API:
+  - A time range covering several shots (e.g. `20–45 seconds:` followed
+    by three shots) is divided among those shots in order. Before, every
+    shot and line got the whole range, so shots played at once, short
+    lines stretched over many seconds and segments grew far past
+    `segment_seconds`.
+  - Lines that share one time range are spoken one after another.
+  - A detail lasting "from N seconds" ends with its shot or scene instead
+    of the end of the video.
+  - Characters, places and narrators without a reference picture are
+    defined only in segments where they appear, so they no longer show up
+    in other scenes. Picture-bound subjects stay in every segment.
+- Ref Prompt Builder AI rewrite keeps a line's own time, e.g. `A (6–9 s):`,
+  instead of spreading the line over its whole shot.
+
 ## 0.9.1 - 2026-10-11
 
 Requires ComfyUI 0.36.0 or newer.
