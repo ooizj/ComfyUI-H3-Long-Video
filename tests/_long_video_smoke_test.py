@@ -498,7 +498,8 @@ def main():
     with tempfile.TemporaryDirectory() as temp, \
             patch.object(long.BasicScheduler, "execute", return_value=io.NodeOutput(torch.tensor([1., 0.]))), \
             patch.object(long.BasicGuider, "execute", side_effect=lambda model, conditioning: io.NodeOutput(SimpleNamespace(conditioning=conditioning))), \
-            patch.object(long.SamplerCustomAdvanced, "execute", side_effect=sample):
+            patch.object(long.SamplerCustomAdvanced, "execute", side_effect=sample), \
+            patch.object(long, "split_prompts", side_effect=lambda prompt, schedule, *args, **kwargs: (schedule, [prompt] * len(schedule))):
         folder_paths.set_temp_directory(temp)
         try:
             clip = Clip(events)
@@ -507,7 +508,8 @@ def main():
                 updates.append((value / total, preview))
             with patch.object(long.comfy.utils, "PROGRESS_BAR_HOOK", hook), CurrentNodeContext("smoke", "long"):
                 video, preview = node.execute(None, clip, VideoVAE(events), AudioVAE(), "A continuous walk.",
-                                      30, width=32, height=32, seed=100, tiled_decode=True, segment_seconds=5).result
+                                      30, width=32, height=32, seed=100, tiled_decode=True, segment_seconds=5,
+                                      prompt_api=api_settings).result
                 assert long.comfy.utils.PROGRESS_BAR_HOOK is hook
             fractions = [value for value, _ in updates]
             assert fractions[0] == 0 and fractions[-1] == 1
@@ -542,14 +544,15 @@ def main():
             clip = Clip()
             first = torch.zeros(1, 32, 32, 3)
             node.execute(None, clip, VideoVAE(), AudioVAE(), "Walk.", 7,
-                         width=32, height=32, first_frame=first, tiled_decode=False, segment_seconds=5)
+                         width=32, height=32, first_frame=first, tiled_decode=False, segment_seconds=5, prompt_api=api_settings)
             assert len(clip.calls) == 2
             assert len(clip.calls[0]["images"]) == 1 and not clip.calls[1]["images"]
 
             samples.clear()
             clip = Clip()
             node.execute(None, clip, VideoVAE(), AudioVAE(), "<Picture 1> walks.", 7,
-                         width=32, height=32, first_frame=first, reference_images=first.repeat(2, 1, 1, 1), segment_seconds=5)
+                         width=32, height=32, first_frame=first, reference_images=first.repeat(2, 1, 1, 1), segment_seconds=5,
+                         prompt_api=api_settings)
             assert len(clip.calls) == 1
             assert all(len(s[1]["minimax_refs"]) == 2 for s in samples)
             assert len(samples[0][1]["minimax_keyframes"]) == 1
@@ -608,10 +611,15 @@ def main():
 
             samples.clear()
             with patch.object(long, "split_prompts") as split:
-                node.execute(None, Clip(), VideoVAE(), AudioVAE(), full_prompt, 14,
-                             width=32, height=32, segment_seconds=5)
+                try:
+                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), full_prompt, 14,
+                                 width=32, height=32, segment_seconds=5)
+                except ValueError as error:
+                    assert "needs 3 segments" in str(error)
+                else:
+                    raise AssertionError("Multiple segments without prompt_api must not run")
                 split.assert_not_called()
-                assert len(samples) == 3
+                assert not samples
 
             samples.clear()
             with patch.object(long, "split_prompts", side_effect=RuntimeError("API failed")):
@@ -634,7 +642,8 @@ def main():
 
             with patch.object(long.SamplerCustomAdvanced, "execute", side_effect=fail_second_segment):
                 try:
-                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Walk.", 7, width=32, height=32, segment_seconds=5)
+                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Walk.", 7, width=32, height=32, segment_seconds=5,
+                                 prompt_api=api_settings)
                 except RuntimeError as error:
                     assert str(error) == "cancelled"
                 else:
@@ -642,7 +651,7 @@ def main():
             assert set(Path(temp).iterdir()) == files_before
         finally:
             folder_paths.set_temp_directory(original_temp)
-    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup")
+    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup")
 
 
 if __name__ == "__main__":

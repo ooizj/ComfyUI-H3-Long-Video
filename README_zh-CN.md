@@ -68,7 +68,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 
 - `first_frame`：可选首帧，只用于第一段开场。
 - `reference_images`：可选参考图，按 `<Picture N>` 顺序作用于所有段；可来自 Builder，也可用 Batch Images 组批。连接参考图时使用 Ref2VA 模型，否则使用兼容的 FL2VA/T2VA 模型。
-- `prompt_api`：可选的自动提示词拆分配置。无需拆分提示词时保持未连接。
+- `prompt_api`：把提示词拆分为各段提示词。视频需要多段时必须连接，否则节点拒绝运行，因为每段都会重复整片剧情。
 - `prompt_preview`：输出实际各段提示词和时间窗口，可接文本显示节点查看。
 
 | 参数 | 默认值 | 用途 |
@@ -103,16 +103,16 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 
 建议在原提示词里写清整片时间段和对白；没写时间时，按剧情顺序把内容分配到各段。
 
-**不需要拆分提示词时，断开 Long Video 的 `prompt_api` 即可：仍会自动分段生成视频，每段复用原提示词，整个视频生成过程不会调用提示词 API。**
+**视频需要多段时必须连接 `prompt_api`。未连接时节点会报错停止，而不是让每段重复整片剧情。只生成一段时，把 `total_seconds` 设为不超过 `segment_seconds`。**
 
 | 情况 | Long Video 是否调用 API |
 | --- | --- |
-| 未连接 `prompt_api` | 不调用，不拆分提示词。 |
+| 未连接 `prompt_api`，且需要多段 | 不运行，请连接 `prompt_api`。 |
 | 实际只需生成一段，即使已连接 `prompt_api` | 不调用，直接使用原提示词。 |
 | 已连接 `prompt_api`，且需要多段 | 调用 API 分析时间线，再改写各段提示词。没有明确时间时，按剧情顺序把内容分配到各段。 |
 | 提示词、时长和 API 设置与最近一次相同，例如只改了 seed | 不调用，复用当时规划的各段提示词。需要新的提示词时修改 Prompt API 的 `variation`。 |
 
-Builder 的 AI 按钮是独立操作；点击时仍会调用它所连接的 API。仅仅不写时间戳不等于关闭 API，要跳过自动提示词拆分，应断开 Long Video 的 `prompt_api`。
+Builder 的 AI 按钮是独立操作；点击时仍会调用它所连接的 API。仅仅不写时间戳不等于关闭 API。
 
 ### H3 Prompt API：云端或本地模型
 

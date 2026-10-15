@@ -107,7 +107,7 @@
     "description": "生成多段 H3 短片，延续其运动和音频，输出为一个视频。将 VIDEO 接到 Save Video。需要 ComfyUI 原生的 Concatenate Video 支持。无参考图时使用 FL2VA/T2VA 模型，有参考图时使用 Ref2VA 模型。",
     "inputs": {
       "prompt": {
-        "tooltip": "为整个视频写一份完整的 H3 提示词，需要时使用最终视频的时间戳。连接 prompt_api 会自动适配到各采样段；不连接则每段重复使用同一提示词。"
+        "tooltip": "为整个视频写一份完整的 H3 提示词，需要时使用最终视频的时间戳。prompt_api 会把它适配到各采样段。"
       },
       "total_seconds": {
         "tooltip": "24 fps 下的最终时长。段数根据 segment_seconds 和 context_length 自动计算。"
@@ -125,7 +125,7 @@
         "tooltip": "供 Ref2VA 模型使用的可选图片批次。每张图都是参考图：<Picture 1>、<Picture 2> 等。用 Image Batch 组合多张图片。参考图在整条链中始终生效。"
       },
       "prompt_api": {
-        "tooltip": "连接 H3 Prompt API 以自动生成各段提示词。不连接则直接复用原提示词，不调用 API。只有一段的视频也会跳过 API。"
+        "tooltip": "连接 H3 Prompt API，把提示词拆分为各段提示词。视频需要多段时必须连接；只有一段的视频可以不连接，也不会调用 API。"
       },
       "log_prompts": {
         "tooltip": "采样前把输入提示词、各段最终提示词、种子和任务 ID 保存到 output/h3_prompt_logs，包括 Prompt Builder 命中缓存时。AI 规划日志由 Prompt API 的 log_prompts 单独控制。"

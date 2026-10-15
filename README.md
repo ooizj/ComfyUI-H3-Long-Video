@@ -68,7 +68,7 @@ Connect the four model inputs, enter the full prompt and total duration, and con
 
 - `first_frame`: optional opening image, used only in the first segment.
 - `reference_images`: optional pictures in `<Picture N>` order, used across all segments. Connect Builder or combine images with Batch Images. Use a Ref2VA model with references, or a compatible FL2VA/T2VA model without them.
-- `prompt_api`: optional automatic prompt splitting. Leave disconnected when prompt splitting is not needed.
+- `prompt_api`: splits the prompt into segment prompts. Required when the video needs more than one segment; the node refuses to run without it, because every segment would repeat the whole story.
 - `prompt_preview`: actual segment prompts and timing windows; connect a text-display node to inspect it.
 
 | Parameter | Default | Purpose |
@@ -103,16 +103,16 @@ Segment boundaries:
 
 Write explicit whole-video time ranges and dialogue in your source prompt; without them, the story is spread over the segments in order.
 
-**If prompt splitting is not needed, disconnect Long Video's `prompt_api`: video generation still runs in segments, each reuses the original prompt, and no prompt API is called during video generation.**
+**A video that needs more than one segment requires `prompt_api`. Without it the node stops with an error instead of repeating the whole story in every segment. For a single segment, set `total_seconds` no higher than `segment_seconds`.**
 
 | Situation | Does Long Video call the API? |
 | --- | --- |
-| `prompt_api` disconnected | No; the prompt is not split. |
+| `prompt_api` disconnected and multiple segments needed | Does not run; connect `prompt_api`. |
 | Only one segment is actually needed, even with `prompt_api` connected | No; uses the original prompt directly. |
 | `prompt_api` connected and multiple segments needed | Yes; analyzes timing, then rewrites segment prompts. Without explicit times, events are spread over the segments in story order. |
 | Same prompt, duration and API settings as a recent run, e.g. only the seed changed | No; reuses the segment prompts planned then. Change Prompt API's `variation` for new ones. |
 
-Builder's AI buttons are independent and still call their connected API when clicked. Omitting timestamps does not disable API calls; disconnect Long Video's `prompt_api` to skip automatic prompt splitting.
+Builder's AI buttons are independent and still call their connected API when clicked. Omitting timestamps does not disable API calls.
 
 ### H3 Prompt API: cloud or local models
 

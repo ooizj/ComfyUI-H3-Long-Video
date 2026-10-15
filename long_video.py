@@ -114,7 +114,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 io.Vae.Input("vae"),
                 io.Vae.Input("audio_vae"),
                 io.String.Input("prompt", default="", multiline=True, dynamic_prompts=True, optional=True,
-                    tooltip="Write one complete H3 prompt for the entire video, with final-video timestamps if wanted. Connect prompt_api to adapt it automatically to sampled segments; without it, the same prompt is reused."),
+                    tooltip="Write one complete H3 prompt for the entire video, with final-video timestamps if wanted. prompt_api adapts it to each sampled segment."),
                 io.Float.Input("total_seconds", default=30.0, min=0.1, max=86400.0, step=0.1, optional=True,
                     tooltip="Final duration at 24 fps. Segment count is calculated automatically from segment_seconds and context_length."),
                 io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True, optional=True),
@@ -134,7 +134,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 io.Image.Input("reference_images", optional=True,
                     tooltip="Optional image batch for a Ref2VA model. Every image is a reference: <Picture 1>, <Picture 2>, etc. Use Image Batch to combine images. References stay attached throughout the chain."),
                 io.Custom("H3_PROMPT_API").Input("prompt_api", optional=True,
-                    tooltip="Connect H3 Prompt API for automatic segment prompts. Leave disconnected to reuse the original prompt without API calls. A single-segment video also skips the API."),
+                    tooltip="Connect H3 Prompt API to split the prompt into segment prompts. Required when the video needs more than one segment; a single-segment video runs without it and skips the API."),
                 io.Boolean.Input("log_prompts", default=True, optional=True, advanced=True,
                     tooltip="Save the input and final per-segment prompts, seeds and task ID to output/h3_prompt_logs before sampling, including when Prompt Builder is cached. Prompt API log_prompts controls AI planning logs separately."),
             ],
@@ -153,13 +153,14 @@ class MiniMaxH3LongVideo(io.ComfyNode):
         schedule = segment_schedule(plan)
         prompts = [prompt] * len(plan)
         reference_count = len(reference_images) if reference_images is not None else 0
-        if prompt_api is not None and len(plan) > 1:
+        if len(plan) > 1:
+            if prompt_api is None:
+                raise ValueError(f"H3 Long Video: this video needs {len(plan)} segments, so connect H3 Prompt API to prompt_api to "
+                                 "split the prompt; without it every segment repeats the whole story. For one segment, set "
+                                 "total_seconds no higher than segment_seconds.")
             input_mode = "Ref2VA" if reference_count else "I2VA" if first_frame is not None else "T2VA"
             schedule, prompts = split_prompts(prompt, schedule, input_mode, reference_count, **prompt_api)
             plan = [(s["sampled_frames"], s["overlap_frames"], s["retained_frames"]) for s in schedule]
-        elif len(plan) > 1:
-            _LOG.warning("H3 Long Video: prompt_api is not connected, so all %d segments reuse the whole prompt and the story "
-                         "repeats. Connect H3 Prompt API to split it into segments.", len(plan))
         _LOG.info("H3 Long Video: %.3fs output, %d segment(s), %.3fs sampled before trimming",
                   sum(keep for _, _, keep in plan) / FPS, len(plan), sum(length for length, _, _ in plan) / FPS)
         preview = prompt_preview(schedule, prompts)
