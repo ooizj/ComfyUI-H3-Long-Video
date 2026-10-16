@@ -202,16 +202,16 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                     tooltip="Use the stock tiled video VAE decoder to reduce decoding memory."),
                 io.Image.Input("first_frame", optional=True,
                     tooltip="Optional opening image, used only for the first segment."),
+                io.Latent.Input("context_latent", optional=True,
+                    tooltip="Continue an earlier H3 clip exactly, from H3 Long Video Load Latent or the latent output of another Long Video. Its size must equal width/height. The new video starts where it ends; join them with Concatenate Video. Connect either this or context_video, not both."),
+                io.Video.Input("context_video", optional=True,
+                    tooltip="Continue any video: its last context_length frames and audio_context_length of sound are pinned. It must be exactly width x height at 24 fps; nothing is resized or converted. The output contains only the new part; join them with Concatenate Video. Connect either this or context_latent, not both."),
                 io.Image.Input("reference_images", optional=True,
                     tooltip="Optional image batch for a Ref2VA model. Every image is a reference: <Picture 1>, <Picture 2>, etc. Use Image Batch to combine images. References stay attached throughout the chain."),
                 io.Custom("H3_PROMPT_API").Input("prompt_api", optional=True,
                     tooltip="Connect H3 Prompt API to split the prompt into segment prompts. Required when the video needs more than one segment; a single-segment video runs without it and skips the API."),
                 io.Boolean.Input("log_prompts", default=True, optional=True, advanced=True,
                     tooltip="Save the input and final per-segment prompts, seeds and task ID to output/h3_prompt_logs before sampling, including when Prompt Builder is cached. Prompt API log_prompts controls AI planning logs separately."),
-                io.Latent.Input("context_latent", optional=True,
-                    tooltip="Continue an earlier H3 clip exactly, from H3 Long Video Load Latent or the latent output of another Long Video. Its size must equal width/height. The new video starts where it ends; join them with Concatenate Video. Connect either this or context_video, not both."),
-                io.Video.Input("context_video", optional=True,
-                    tooltip="Continue any video: its last context_length frames and audio_context_length of sound are pinned. It must be exactly width x height at 24 fps; nothing is resized or converted. The output contains only the new part; join them with Concatenate Video. Connect either this or context_latent, not both."),
                 io.Combo.Input("ref_image_size", options=["match", "max"], default="match", advanced=True, optional=True,
                     tooltip="Reference image size for a Ref2VA model. 'match' scales references to the video's pixel area; 'max' keeps up to a 2048 px short edge for best identity, but sampling can be several times slower. Needs a ComfyUI version whose H3 reference node has ref_image_size."),
                 io.Boolean.Input("save_latents", display_name="⚠ save_latents", default=True, optional=True,
@@ -225,9 +225,9 @@ class MiniMaxH3LongVideo(io.ComfyNode):
     def execute(cls, model, clip, vae, audio_vae, prompt="", total_seconds=30.0, seed=0,
                 width=960, height=544, segment_seconds=15.0, steps=20,
                 sampler_name="res_multistep", scheduler="simple", context_length="22",
-                audio_context_length=24, tiled_decode=True, first_frame=None,
-                reference_images=None, prompt_api=None, log_prompts=True, context_latent=None,
-                context_video=None, ref_image_size="match", save_latents=True):
+                audio_context_length=24, tiled_decode=True, first_frame=None, context_latent=None,
+                context_video=None, reference_images=None, prompt_api=None, log_prompts=True,
+                ref_image_size="match", save_latents=True):
         if not hasattr(InputImpl, "VideoFromList"):
             raise RuntimeError("H3 Long Video needs native Concatenate Video support. Update ComfyUI to use this node.")
         width = max(32, math.ceil(width / 32) * 32)

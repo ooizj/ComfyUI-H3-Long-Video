@@ -25,7 +25,15 @@ Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
   `manifest.json` to `output/h3_long_video/<run>`. These files are never
   deleted automatically.
 - New **H3 Long Video Load Latent** node loads a saved segment latent for
-  `context_latent`.
+  `context_latent`. **Preview and choose…** plays the saved video on a
+  timeline; the continuation point can be any point on H3's 17 frame grid
+  (about every 0.71 s), not only a segment end, and the latent is cut there
+  exactly. The node shows the frame it continues from, with the segment,
+  size and summary. `latest` skips runs
+  that saved no segment.
+- The Image & Prompt **load** dialog shows the prompt's summary, larger
+  pictures (click to enlarge) and a formatted read-only prompt, in
+  ComfyUI's theme colors.
 - `ref_image_size` (`match` / `max`) for Ref2VA reference images.
 - The video keeps the last segment's rounding up to H3's frame grid, so it
   can run up to 16 frames (0.67 s) longer than `total_seconds`. Its end then

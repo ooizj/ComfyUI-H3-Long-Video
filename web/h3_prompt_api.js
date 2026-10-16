@@ -4,7 +4,7 @@ import { localizer, t } from "./h3_i18n.js";
 
 const style = document.createElement("style");
 style.textContent = `
-.h3-api-key{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:calc(100% - 20px);height:28px;margin:0 10px;padding:0 8px;border:1px solid var(--border-color,#555);border-radius:7px;background:var(--comfy-input-bg,#222);color:var(--input-text,#ddd);font:12px sans-serif}
+.h3-api-key{box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;width:calc(100% - 20px);height:28px;margin:auto 10px;padding:0 8px;border:1px solid var(--border-color,#555);border-radius:7px;background:var(--comfy-input-bg,#222);color:var(--input-text,#ddd);font:12px sans-serif}
 .h3-api-key input{flex:1;min-width:0;width:0;border:0;outline:none;background:transparent;color:inherit;font:inherit}
 .h3-api-key:focus-within{border-color:#75cabc}.h3-api-key button{display:flex;align-items:center;padding:2px;border:0;background:transparent;color:inherit;cursor:pointer}.h3-api-key button:focus-visible{outline:1px solid #75cabc}.h3-api-key svg{width:17px;height:17px}
 `;

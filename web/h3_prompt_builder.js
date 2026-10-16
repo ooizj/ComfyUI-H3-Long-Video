@@ -92,6 +92,8 @@ function install(node) {
     syncWidth();
   };
   root.tabIndex = 0;
+  // Nodes 2.0 zooms on wheel unless the focused element sits inside data-capture-wheel.
+  root.dataset.captureWheel = "true";
   for (const type of ["pointerdown", "pointermove", "pointerup", "mousedown", "dblclick", "keydown", "keyup", "wheel"]) {
     root.addEventListener(type, e => e.stopPropagation());
   }

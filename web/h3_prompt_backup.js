@@ -1,6 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { localizer, t } from "./h3_i18n.js";
+import { button as dialogButton, dateLabel, openDialog, promptSections, promptSummary, renderPrompt, showLightbox } from "./h3_dialog.js";
 
 const css = document.createElement("style");
 css.textContent = `
@@ -8,10 +9,7 @@ css.textContent = `
 .h3-backup *{box-sizing:border-box}.h3-backup button{border:1px solid #405366;background:#223343;border-radius:5px;padding:5px 10px;color:inherit;font:inherit;cursor:pointer}.h3-backup button:hover{background:#30485c}.h3-backup button:disabled{opacity:.4;cursor:default}.h3-backup button:focus-visible,.h3-backup textarea:focus{outline:1px solid #75cabc}
 .h3-backup-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.h3-backup-gallery{display:flex;gap:8px;flex-shrink:0;overflow-x:auto;min-height:150px;padding:4px 0 10px;scrollbar-color:#648f9f #0b131b}.h3-backup-card{flex:0 0 142px;border:1px solid #344d5d;border-radius:6px;padding:6px;background:#1b2732}.h3-backup-card img{display:block;width:128px;height:90px;object-fit:contain;background:#10161c;cursor:pointer}.h3-backup-card strong{display:block;color:#8bdbcb;text-align:center;font-size:12px}.h3-backup-card button{padding:2px 7px}.h3-backup-card .h3-backup-row{gap:3px;justify-content:center}
 .h3-backup textarea{flex:1;min-height:180px;width:100%;resize:none;padding:10px;border:1px solid #344352;border-radius:5px;background:#0c141c;color:inherit;font:13px/1.6 system-ui,sans-serif}.h3-backup-path,.h3-backup-status{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;color:#a6b7c6;font-size:12px}.h3-backup .h3-backup-primary{background:#275b53;border-color:#559486}.h3-backup-empty{align-self:center;color:#a6b7c6}.h3-backup-status:empty{display:none}
-.h3-backup-dialog{width:min(1000px,92vw);height:min(740px,88vh);max-width:92vw;max-height:88vh;margin:auto;padding:0;border:1px solid #405366;border-radius:10px;background:#131b23;color:#e4ebf2;font:13px/1.5 system-ui,sans-serif}.h3-backup-dialog::backdrop{background:#0009}.h3-backup-dialog *{box-sizing:border-box}.h3-backup-browser{height:100%;display:flex;flex-direction:column;gap:12px;padding:18px}.h3-backup-browser h3{margin:0;font-size:18px}.h3-backup-browser button{padding:7px 12px;border:1px solid #405366;border-radius:5px;background:#223343;color:inherit;font:inherit;cursor:pointer}.h3-backup-browser button:disabled{opacity:.45;cursor:default}.h3-backup-browser button:focus-visible,.h3-backup-preview textarea:focus{outline:2px solid #75cabc}.h3-backup-browser button[aria-pressed=true]{border-color:#8bdbcb;background:#275b53}
-.h3-backup-browser-body{display:flex;gap:16px;flex:1;min-height:0}.h3-backup-list{flex:0 0 270px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:2px}.h3-backup-browser .h3-backup-entry{text-align:left;width:100%;padding:10px;flex-shrink:0;overflow-wrap:anywhere}.h3-backup-entry img{float:left;width:64px;height:52px;object-fit:contain;margin:0 8px 5px 0;background:#0c141c}.h3-backup-entry small{display:block;color:#a6b7c6}.h3-backup-snippet{clear:both;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:6px;font-size:12px}
-.h3-backup-preview{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:auto}.h3-backup-preview-images{display:flex;gap:8px;overflow:auto;flex-shrink:0;max-height:190px}.h3-backup-preview-images figure{margin:0;flex:0 0 160px}.h3-backup-preview-images img{display:block;width:160px;height:130px;object-fit:contain;background:#0c141c}.h3-backup-preview-images figcaption{text-align:center;color:#8bdbcb}.h3-backup-preview textarea{flex:1;min-height:180px;width:100%;resize:none;padding:10px;border:1px solid #344352;border-radius:5px;background:#0c141c;color:inherit;font:13px/1.6 system-ui,sans-serif}.h3-backup-browser-footer{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.h3-backup-browser-footer small{flex:1;color:#a6b7c6}.h3-backup-browser .h3-backup-primary{background:#275b53;border-color:#559486}
-@media(max-width:650px){.h3-backup-browser-body{flex-direction:column}.h3-backup-list{flex:0 0 150px}.h3-backup-browser{padding:12px}.h3-backup-preview-images img{height:90px}.h3-backup-preview textarea{min-height:100px}}
+.h3-backup-strip{display:flex;gap:10px;overflow-x:auto;flex-shrink:0;padding-bottom:4px}.h3-backup-strip figure{position:relative;flex-shrink:0;margin:0}.h3-backup-strip img{display:block;height:150px;max-width:260px;object-fit:contain;border-radius:6px;background:var(--h3-input);cursor:zoom-in}.h3-backup-strip .h3-badge{position:absolute;left:6px;top:6px;background:#000b;color:#fff}
 `;
 document.head.append(css);
 
@@ -45,6 +43,8 @@ function install(node) {
   }
   const root = element("div", "h3-backup");
   root.tabIndex = 0;
+  // Nodes 2.0 zooms on wheel unless the focused element sits inside data-capture-wheel.
+  root.dataset.captureWheel = "true";
   for (const type of ["pointerdown", "pointermove", "pointerup", "mousedown", "dblclick", "keydown", "keyup", "wheel"]) {
     root.addEventListener(type, e => {
       if (type === "keydown" && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") return;
@@ -194,79 +194,72 @@ function install(node) {
   async function browseBackups() {
     if (busy) return;
     busy = true; renderGallery();
-    const dialog = element("dialog", "h3-backup-dialog");
-    backupDialog = dialog;
-    dialog.setAttribute("aria-label", t("预览并载入备份", "Preview and load a backup"));
-    const browser = element("div", "h3-backup-browser");
-    const body = element("div", "h3-backup-browser-body");
-    const list = element("div", "h3-backup-list", t("正在读取备份…", "Reading backups…"));
-    const preview = element("div", "h3-backup-preview");
-    const detail = element("div", "h3-backup-path", t("选择左侧备份以预览", "Select a backup to preview"));
-    const images = element("div", "h3-backup-preview-images");
-    const text = element("textarea");
-    text.readOnly = true;
-    text.setAttribute("aria-label", t("备份提示词预览", "Backup prompt preview"));
-    text.placeholder = t("提示词预览", "Prompt preview");
-    preview.append(detail, images, text);
-    body.append(list, preview);
-    const actions = element("div", "h3-backup-browser-footer");
-    actions.append(element("small", "", t("载入将替换当前节点中的图片和提示词。", "Loading replaces this node's images and prompt.")));
-    let selected = null;
-    let previewController = null;
     const listController = new AbortController();
-    const apply = button(t("载入所选备份", "Load selected backup"), () => {
-      if (!selected) return;
+    let previewController = null;
+    let selected = null;
+    const ui = openDialog({
+      title: t("加载备份", "Load backup"),
+      label: t("预览并载入备份", "Preview and load a backup"),
+      onClose: () => { listController.abort(); previewController?.abort(); backupDialog = null; busy = false; renderGallery(); },
+    });
+    backupDialog = ui.dialog;
+    ui.list.append(element("div", "h3-dlg-empty", t("正在读取备份…", "Reading backups…")));
+    const where = element("div", "h3-dlg-hint");
+    const copy = dialogButton(t("复制路径", "Copy path"), async () => {
+      await navigator.clipboard?.writeText(selected.backup_path);
+      copy.textContent = t("已复制", "Copied");
+      setTimeout(() => { copy.textContent = t("复制路径", "Copy path"); }, 1200);
+    });
+    copy.hidden = true;
+    const apply = dialogButton(t("载入所选备份", "Load selected backup"), () => {
       widgets.pictures.value = JSON.stringify(selected.pictures);
       widgets.prompt.value = prompt.value = selected.prompt;
       node.properties.h3_backup_path = selected.backup_path;
       status.textContent = t(`已载入 ${selected.pictures.length} 张图片和提示词`, `Loaded ${selected.pictures.length} images and the prompt`) + `\n${selected.backup_path}`;
       changed();
-      dialog.close();
-    }, actions);
-    apply.className = "h3-backup-primary";
+      ui.dialog.close();
+    }, "h3-btn h3-btn-primary");
     apply.disabled = true;
-    button(t("取消", "Cancel"), () => dialog.close(), actions);
-    browser.append(element("h3", "", t("加载备份", "Load backup")), body, actions);
-    dialog.append(browser);
-    for (const type of ["pointerdown", "pointermove", "pointerup", "mousedown", "dblclick", "keydown", "keyup", "wheel"]) {
-      dialog.addEventListener(type, e => e.stopPropagation());
-    }
-    dialog.addEventListener("close", () => {
-      listController.abort(); previewController?.abort();
-      dialog.remove(); backupDialog = null;
-      busy = false; renderGallery();
-    }, { once: true });
-    document.body.append(dialog);
-    dialog.showModal();
+    apply.title = t("载入会替换当前节点中的图片和提示词", "Loading replaces this node's images and prompt");
+    ui.footer.append(where, copy, dialogButton(t("取消", "Cancel"), () => ui.dialog.close()), apply);
 
     async function previewEntry(entry, control) {
       previewController?.abort();
       const controller = new AbortController();
       previewController = controller;
-      selected = null; apply.disabled = true;
-      for (const item of list.children) item.setAttribute("aria-pressed", String(item === control));
-      detail.textContent = t("正在读取预览…", "Reading preview…");
-      images.replaceChildren(); text.value = "";
+      selected = null; apply.disabled = true; copy.hidden = true;
+      for (const item of ui.list.children) item.setAttribute("aria-pressed", String(item === control));
+      ui.main.replaceChildren(element("div", "h3-dlg-empty", t("正在读取预览…", "Reading preview…")));
       try {
         const response = await api.fetchApi(`/h3_motion_context/prompt_backups/${encodeURIComponent(entry.id)}`, {
           signal: controller.signal, cache: "no-store",
         });
         const result = await response.json();
-        if (controller.signal.aborted || !dialog.open) return;
+        if (controller.signal.aborted || !ui.dialog.open) return;
         if (!response.ok) throw new Error(t("读取备份失败：", "Could not read backup: ") + (result.error || `HTTP ${response.status}`));
-        detail.textContent = t(`${result.pictures.length} 张图片`, `${result.pictures.length} images`) + `\n${result.backup_path}`;
-        text.value = result.prompt;
+        const time = dateLabel(new Date(result.created_at)) || result.id;
+        const count = result.prompt.length.toLocaleString();
+        ui.subtitle.textContent = `${time} · ${t(`${result.pictures.length} 张图片`, `${result.pictures.length} images`)} · ${t(`${count} 字`, `${count} characters`)}`;
+        const gallery = element("div", "h3-backup-strip");
         for (const [index, path] of result.pictures.entries()) {
           const figure = element("figure");
           const img = element("img");
-          img.src = viewUrl(path); img.alt = `<Picture ${index + 1}>`;
-          figure.append(img, element("figcaption", "", img.alt));
-          images.append(figure);
+          const label = `Picture ${index + 1}`;
+          img.src = viewUrl(path); img.alt = label; img.title = t("点击放大", "Click to enlarge");
+          img.onclick = () => showLightbox(ui.dialog, img.src, label);
+          figure.append(img, element("span", "h3-badge", label));
+          gallery.append(figure);
         }
-        if (!result.pictures.length) images.append(element("div", "h3-backup-empty", t("此备份仅包含提示词", "This backup has only a prompt")));
-        selected = result; apply.disabled = false;
+        // Summary first: it says what the backup is about; the rest keeps its order.
+        const sections = promptSections(result.prompt);
+        const ordered = [...sections.filter(s => s.name === "summary"), ...sections.filter(s => s.name !== "summary")];
+        const text = ordered.length ? renderPrompt(ordered) : element("div", "h3-dlg-empty", t("（空提示词）", "(empty prompt)"));
+        ui.main.replaceChildren(...(result.pictures.length ? [gallery] : []), text);
+        where.textContent = `h3_prompt_backups/${result.id}`;
+        where.title = result.backup_path;
+        selected = result; apply.disabled = false; copy.hidden = !navigator.clipboard;
       } catch (error) {
-        if (!controller.signal.aborted && dialog.open) detail.textContent = error.message;
+        if (!controller.signal.aborted && ui.dialog.open) ui.main.replaceChildren(element("div", "h3-dlg-empty", error.message));
       }
     }
 
@@ -276,34 +269,41 @@ function install(node) {
       });
       if (response.status === 404) throw new Error(t("请重启 ComfyUI 并刷新页面，以加载备份列表。", "Restart ComfyUI and reload the page to list backups."));
       const result = await response.json();
-      if (listController.signal.aborted || !dialog.open) return;
+      if (listController.signal.aborted || !ui.dialog.open) return;
       if (!response.ok) throw new Error(t("读取备份列表失败：", "Could not list backups: ") + (result.error || `HTTP ${response.status}`));
-      list.replaceChildren();
+      ui.list.replaceChildren();
       let first = null;
       for (const entry of result.backups) {
-        const control = button("", () => void previewEntry(entry, control), list);
-        control.className = "h3-backup-entry";
+        const control = dialogButton("", null, "h3-card");
         control.setAttribute("aria-pressed", "false");
         control.title = entry.id;
-        if (entry.cover) {
-          const cover = element("img");
-          cover.src = viewUrl(entry.cover); cover.alt = t("备份缩略图", "Backup thumbnail"); cover.loading = "lazy";
-          control.append(cover);
+        const thumb = element("div", "h3-card-thumb");
+        for (const cover of entry.covers || []) {
+          const img = element("img");
+          img.src = viewUrl(cover); img.alt = ""; img.loading = "lazy";
+          thumb.append(img);
         }
-        const time = new Date(entry.created_at);
-        control.append(element("strong", "", Number.isNaN(time.getTime()) ? entry.id : time.toLocaleString()));
+        const text = element("div", "h3-card-text");
+        text.append(element("div", "h3-card-title", dateLabel(new Date(entry.created_at)) || entry.id));
+        control.append(thumb, text);
         if (entry.error) {
-          control.append(element("small", "", t("无法读取：", "Unreadable: ") + entry.error)); control.disabled = true;
+          text.append(element("div", "h3-card-meta", t("无法读取：", "Unreadable: ") + entry.error));
+          control.disabled = true;
         } else {
-          control.append(element("small", "", t(`${entry.image_count} 张图片`, `${entry.image_count} images`)),
-            element("div", "h3-backup-snippet", entry.prompt_preview || t("（空提示词）", "(empty prompt)")));
+          text.append(element("div", "h3-card-meta", t(`${entry.image_count} 张图片`, `${entry.image_count} images`)),
+            element("div", "h3-clamp", promptSummary(entry.prompt) || t("（空提示词）", "(empty prompt)")));
+          control.onclick = () => void previewEntry(entry, control);
           first ??= { entry, control };
         }
+        ui.list.append(control);
       }
       if (first) void previewEntry(first.entry, first.control);
-      else detail.textContent = result.backups.length ? t("没有可载入的备份，请检查列表中的错误。", "No loadable backups; check the errors in the list.") : t("暂无备份，先点击 backup 保存。", "No backups yet; click backup to save one.");
+      else ui.main.replaceChildren(element("div", "h3-dlg-empty", result.backups.length ? t("没有可载入的备份，请检查列表中的错误。", "No loadable backups; check the errors in the list.") : t("暂无备份，先点击 backup 保存。", "No backups yet; click backup to save one.")));
     } catch (error) {
-      if (!listController.signal.aborted && dialog.open) list.textContent = error.message;
+      if (!listController.signal.aborted && ui.dialog.open) {
+        ui.list.replaceChildren();
+        ui.main.replaceChildren(element("div", "h3-dlg-empty", error.message));
+      }
     }
   }
 

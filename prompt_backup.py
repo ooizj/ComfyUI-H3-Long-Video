@@ -100,8 +100,7 @@ def list_backups():
             entries.append({"id": directory.name, "error": str(error)})
             continue
         entries.append({"id": item["id"], "created_at": item["created_at"],
-                        "image_count": len(item["pictures"]), "cover": next(iter(item["pictures"]), None),
-                        "prompt_preview": item["prompt"][:180]})
+                        "image_count": len(item["pictures"]), "covers": item["pictures"][:3], "prompt": item["prompt"]})
     return entries
 
 

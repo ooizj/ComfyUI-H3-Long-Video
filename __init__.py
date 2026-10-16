@@ -41,6 +41,7 @@ from .long_video import (
 from .segment_store import (
     NODE_CLASS_MAPPINGS as _STORE_CLASSES,
     NODE_DISPLAY_NAME_MAPPINGS as _STORE_NAMES,
+    register_segment_routes,
 )
 from .prompt_planner import (
     NODE_CLASS_MAPPINGS as _PLANNER_CLASSES,
@@ -72,6 +73,7 @@ NODE_DISPLAY_NAME_MAPPINGS.update(_BACKUP_NAMES)
 register_chain_routes()
 register_backup_routes()
 register_model_routes()
+register_segment_routes()
 
 logging.getLogger("h3_motion_context").info(
     "h3_motion_context: nodes registered. ComfyUI is not modified; the "

@@ -597,6 +597,23 @@ def main():
                     raise AssertionError("A missing run or segment must fail")
             assert isinstance(store.MiniMaxH3LongVideoLoadLatent.fingerprint_inputs(run_name, 3), str)
 
+            # frames: a cut inside a segment keeps a 17g+5 frame prefix of picture and sound.
+            cuts = store.cut_points(manifest["segments"][2])
+            assert cuts[-1][0] == manifest["segments"][2]["sampled_frames"] and len(cuts) > 1
+            assert all((f - 5) % 17 == 0 and f >= store.MIN_CUT_FRAMES for f, _ in cuts)
+            assert abs(cuts[-1][1] - manifest["segments"][2]["final_end_seconds"]) < 1e-9
+            cut_frames, cut_time = cuts[0]
+            cut, cut_info = store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3, cut_frames).result
+            assert cut["samples"][0].shape[2] == (cut_frames - 5) // 17 * 5 + 2
+            assert cut["samples"][1].shape[-1] == round(cut_frames * 5 / 3)
+            assert f"{cut_time:.2f}s" in cut_info
+            try:
+                store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3, cut_frames + 1)
+            except ValueError as error:
+                assert f"nearest point is {cut_frames} frames" in str(error)
+            else:
+                raise AssertionError("An off-grid cut must fail")
+
             # context_latent: segment 1 is a continuation, pinned from the given latent.
             def continue_from(expected_value, **kwargs):
                 samples.clear()
@@ -613,6 +630,7 @@ def main():
 
             continue_from(7, context_latent=long_latent)
             continue_from(3, context_latent=third)
+            continue_from(3, context_latent=cut)
             assert len(store.list_runs()) == 1
 
             # context_video: only its last context_length frames are encoded.
