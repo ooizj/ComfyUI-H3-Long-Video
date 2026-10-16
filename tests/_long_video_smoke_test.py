@@ -4,7 +4,9 @@ Run with ComfyUI's Python from this repository. No model weights are loaded.
 For a checkout outside custom_nodes, set COMFYUI_ROOT to the ComfyUI directory.
 """
 
+from fractions import Fraction
 import importlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -23,7 +25,7 @@ import comfy.options
 comfy.options.enable_args_parsing()
 import torch
 import folder_paths
-from comfy_api.latest import io
+from comfy_api.latest import InputImpl, Types, io
 from comfy_execution.utils import CurrentNodeContext
 from comfy_extras.nodes_minimax_h3 import video_latent_t
 
@@ -31,6 +33,7 @@ long = importlib.import_module(PACKAGE.name + ".long_video")
 motion = importlib.import_module(PACKAGE.name + ".nodes")
 planner = importlib.import_module(PACKAGE.name + ".prompt_planner")
 timing = importlib.import_module(PACKAGE.name + ".prompt_timing")
+store = importlib.import_module(PACKAGE.name + ".segment_store")
 
 
 def test_progress_scope():
@@ -94,9 +97,11 @@ class VideoVAE:
     def __init__(self, events=None):
         self.encode_calls = 0
         self.events = events
+        self.encoded = []
 
     def encode(self, images):
         self.encode_calls += 1
+        self.encoded.append(images)
         t = 1 if len(images) == 1 else video_latent_t(len(images))
         return torch.zeros(1, 24, t, images.shape[1] // 16, images.shape[2] // 16)
 
@@ -124,6 +129,10 @@ class AudioVAE:
 
     def decode(self, z):
         return torch.full((1, z.shape[-1] * 800, 2), 0.05)
+
+    def encode(self, waveform):
+        # [1, samples, channels] at 32 kHz -> [1, 32, 2, T] at 40 Hz
+        return torch.zeros(1, 32, 2, max(1, waveform.shape[1] // 800))
 
 
 def test_prompt_api():
@@ -185,6 +194,7 @@ def test_prompt_api():
         request = json.loads(second.kwargs["json"]["messages"][1]["content"])
         assert request["full_h3_prompt"] == full_prompt and request["reference_image_count"] == 3
         assert request["input_mode"] == "Ref2VA" and len(request["clips"]) == 2
+        assert request["continues_existing_video"] is False
         assert request["clips"][0]["speech"][0]["local_seconds"] == [0, 3]
         assert request["clips"][1]["global_time_at_local_zero"] == 7.08
         log_directory = Path(folder_paths.get_output_directory()) / "h3_prompt_logs"
@@ -449,6 +459,11 @@ def test_dialogue_boundaries():
             assert length % 17 == 5 and keep == length - overlap
             assert not round(3.2 * 24) < cursor < round(15.3 * 24)
     assert timing.protect_dialogue_boundaries(schedule, [], 24) == long.plan_segments(14, 5, 22)
+    # A continuation keeps its first segment's pinned context when boundaries move.
+    continuing = planner.segment_schedule(long.plan_segments(14, 5, 22, continuing=True))
+    moved = timing.protect_dialogue_boundaries(continuing, [dict(events[0], start_seconds=3.2, end_seconds=6)], 24)
+    assert moved != long.plan_segments(14, 5, 22, continuing=True)
+    assert all(overlap == 22 for _, overlap, _ in moved) and sum(p[2] for p in moved) == 336
     assert len(timing.protect_dialogue_boundaries(schedule, [dict(events[0], start_seconds=0, end_seconds=14)], 24)) == 1
 
 
@@ -459,12 +474,27 @@ def main():
             patch.object(folder_paths, "get_output_directory", return_value=log_root):
         api_settings = test_prompt_api()
     node = long.MiniMaxH3LongVideo
-    assert tuple(node.GET_NODE_INFO_V1()["output"]) == ("VIDEO", "STRING")
+    assert tuple(node.GET_NODE_INFO_V1()["output"]) == ("VIDEO", "STRING", "LATENT")
+    optional = node.GET_NODE_INFO_V1()["input"]["optional"]
+    assert optional["save_latents"][1]["default"] is True
+    assert optional["ref_image_size"][1]["default"] == "match"
+    assert long.plan_segments(14, 5, 22, continuing=True) == [(124, 22, 102), (124, 22, 102), (158, 22, 132)]
+    for total, segment, context in [(0.1, 5, 22), (5, 5, 22), (60.1, 5, 56), (14, 15, 22)]:
+        parts = long.plan_segments(total, segment, context, continuing=True)
+        assert sum(p[2] for p in parts) == max(1, round(total * 24))
+        assert all(overlap == context and length % 17 == 5 for length, overlap, _ in parts)
     assert node.GET_NODE_INFO_V1()["input"]["optional"]["segment_seconds"][1]["default"] == 15.0
     assert long.plan_segments(14, 15, 22) == [(345, 0, 336)]
     assert len(long.plan_segments(30, 15, 22)) == 2
     plan = long.plan_segments(30, 5, 22)
     assert len(plan) == 7 and sum(keep for _, _, keep in plan) == 720
+    # Long Video also keeps the last segment's rounding up to H3's grid, so its latent ends with the video.
+    def delivered(parts):
+        return parts[:-1] + [(parts[-1][0], parts[-1][1], parts[-1][0] - parts[-1][1])]
+    kept = delivered(plan)
+    total_frames = sum(keep for _, _, keep in kept)
+    assert 720 <= total_frames < 720 + 17
+    assert sum(k for *_, k in delivered(long.plan_segments(14, 5, 22))) == 345
     assert long.plan_segments(14, 5, 22) == [(124, 0, 124), (124, 22, 102), (141, 22, 110)]
     schedule = planner.segment_schedule(long.plan_segments(14, 5, 22))
     assert long.plan_segments(6, 5, 22) == [(158, 0, 144)]
@@ -507,7 +537,7 @@ def main():
             def hook(value, total, preview, **kwargs):
                 updates.append((value / total, preview))
             with patch.object(long.comfy.utils, "PROGRESS_BAR_HOOK", hook), CurrentNodeContext("smoke", "long"):
-                video, preview = node.execute(None, clip, VideoVAE(events), AudioVAE(), "A continuous walk.",
+                video, preview, last_latent = node.execute(None, clip, VideoVAE(events), AudioVAE(), "A continuous walk.",
                                       30, width=32, height=32, seed=100, tiled_decode=True, segment_seconds=5,
                                       prompt_api=api_settings).result
                 assert long.comfy.utils.PROGRESS_BAR_HOOK is hook
@@ -516,7 +546,7 @@ def main():
             assert all(a <= b for a, b in zip(fractions, fractions[1:]))
             assert all(value < 1 for value in fractions[:-1])
             assert sum(preview == "sample-preview" for _, preview in updates) == 7
-            assert video.get_frame_count() == 720 and abs(video.get_duration() - 30) < 1 / 24
+            assert video.get_frame_count() == total_frames and abs(video.get_duration() - total_frames / 24) < 1 / 24
             assert [s[0] for s in samples] == list(range(100, 107))
             video_log, = (Path(folder_paths.get_output_directory()) / "h3_prompt_logs").glob("*_video.json")
             saved = json.loads(video_log.read_text(encoding="utf-8"))
@@ -530,15 +560,88 @@ def main():
                 for stage in ("sample", "decode") for index in group
             ]
             components = video.get_components()
-            assert components.images.shape[0] == 720 and components.audio["sample_rate"] == 32000
+            assert components.images.shape[0] == total_frames and components.audio["sample_rate"] == 32000
             cursor = 0
-            for index, (_, _, keep) in enumerate(plan):
+            for index, (_, _, keep) in enumerate(kept):
                 value = (index + 1) / 10
                 for frame in (cursor, cursor + keep - 1):
                     assert abs(float(components.images[frame].mean()) - value) < 0.03
                 cursor += keep
             assert not list(Path(temp).glob("h3_segments_*"))
             del components
+
+            # save_latents: every segment's latent and MP4 plus a complete manifest.
+            run_name, = store.list_runs()
+            run_dir = Path(store.runs_root()) / run_name
+            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+            assert manifest["status"] == "complete" and manifest["segments_saved"] == 7
+            assert [s["seed"] for s in manifest["segments"]] == list(range(100, 107))
+            assert sorted(p.name for p in run_dir.iterdir()) == ["manifest.json"] + sorted(
+                f"seg_{i:04d}.{ext}" for i in range(1, 8) for ext in ("mp4", "safetensors"))
+            assert [s["retained_frames"] for s in manifest["segments"]] == [keep for _, _, keep in kept]
+            assert InputImpl.VideoFromFile(str(run_dir / "seg_0002.mp4")).get_frame_count() == plan[1][2]
+            long_video, long_latent = video, last_latent
+
+            # Load Latent: 'latest' and segment 0 pick the last saved segment.
+            loaded, info = store.MiniMaxH3LongVideoLoadLatent.execute(store.LATEST, 0).result
+            assert torch.all(loaded["samples"][0] == 7) and torch.all(loaded["samples"][1] == 7)
+            assert "segment 7/7" in info
+            third, _ = store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3).result
+            assert torch.all(third["samples"][0] == 3)
+            for run, segment in [(run_name, 8), ("../elsewhere", 1)]:
+                try:
+                    store.MiniMaxH3LongVideoLoadLatent.execute(run, segment)
+                except FileNotFoundError:
+                    pass
+                else:
+                    raise AssertionError("A missing run or segment must fail")
+            assert isinstance(store.MiniMaxH3LongVideoLoadLatent.fingerprint_inputs(run_name, 3), str)
+
+            # context_latent: segment 1 is a continuation, pinned from the given latent.
+            def continue_from(expected_value, **kwargs):
+                samples.clear()
+                vae = VideoVAE()
+                result = node.execute(None, Clip(), vae, AudioVAE(), "Keep walking.", 5, width=32, height=32,
+                                      segment_seconds=5, save_latents=False, **kwargs).result
+                keyframes = samples[0][1]["minimax_keyframes"]
+                video_keys = [k for k in keyframes if "latent" in k]
+                assert len(video_keys) == 7 and len([k for k in keyframes if "audio_latent" in k]) == 1
+                if expected_value is not None:
+                    assert all(torch.all(k["latent"] == expected_value) for k in video_keys)
+                assert result[0].get_frame_count() == 136
+                return result, vae
+
+            continue_from(7, context_latent=long_latent)
+            continue_from(3, context_latent=third)
+            assert len(store.list_runs()) == 1
+
+            # context_video: only its last context_length frames are encoded.
+            _, vae = continue_from(None, context_video=long_video)
+            assert vae.encoded[0].shape[0] == 22 and abs(float(vae.encoded[0].mean()) - 0.7) < 0.03
+
+            short_clip = InputImpl.VideoFromComponents(Types.VideoComponents(
+                images=torch.zeros(30, 32, 32, 3), audio=None, frame_rate=Fraction(30)))
+            refusals = [
+                (dict(context_latent=long_latent, context_video=long_video), "not both"),
+                (dict(context_latent=long_latent, first_frame=torch.zeros(1, 32, 32, 3)), "first_frame"),
+                (dict(context_latent=long_latent, width=64), "cannot be resized"),
+                (dict(context_latent={"samples": [long_latent["samples"].unbind()[0]]}), "no audio stream"),
+                (dict(context_video=long_video, width=64), "context_video is 32x32"),
+                (dict(context_video=short_clip), "30.000 fps"),
+            ]
+            for kwargs, message in refusals:
+                samples.clear()
+                kwargs = {"width": 32, "height": 32} | kwargs
+                with patch.object(long, "split_prompts") as split:
+                    try:
+                        node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Keep walking.", 14,
+                                     segment_seconds=5, prompt_api=api_settings, save_latents=False, **kwargs)
+                    except ValueError as error:
+                        assert message in str(error), (message, str(error))
+                    else:
+                        raise AssertionError(f"Must refuse: {message}")
+                    split.assert_not_called()
+                assert not samples
 
             samples.clear()
             clip = Clip()
@@ -557,6 +660,14 @@ def main():
             assert all(len(s[1]["minimax_refs"]) == 2 for s in samples)
             assert len(samples[0][1]["minimax_keyframes"]) == 1
 
+            if "ref_image_size" in inspect.signature(long.MiniMaxH3ReferenceToVideo.execute).parameters:
+                # 'match' scales a 64 px reference to the 32 px video's area; 'max' keeps it.
+                for size, latent_h in [("match", 2), ("max", 4)]:
+                    samples.clear()
+                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), "<Picture 1> walks.", 5, width=32, height=32,
+                                 reference_images=torch.zeros(1, 64, 64, 3), ref_image_size=size, save_latents=False)
+                    assert samples[0][1]["minimax_refs"][0]["latent_h"] == latent_h
+
             full_prompt = "detailed_description: [Shot 1] A continuous 14-second dinner conversation."
             def adapt(prompt, schedule, mode, reference_count, **settings):
                 assert prompt == full_prompt and settings == api_settings
@@ -572,14 +683,14 @@ def main():
                 clip = Clip(events)
                 vae = VideoVAE(events)
                 with patch.object(long, "split_prompts", side_effect=adapt) as split:
-                    video, preview = node.execute(
+                    video, preview, _ = node.execute(
                         None, clip, vae, AudioVAE(), full_prompt, 14,
                         width=32, height=32, segment_seconds=segment_seconds,
                         first_frame=first if expected_mode != "T2VA" else None,
                         reference_images=first.repeat(expected_refs, 1, 1, 1) if expected_refs else None,
                         prompt_api=api_settings).result
                     split.assert_called_once()
-                assert len(samples) == expected_count and video.get_frame_count() == 336
+                assert len(samples) == expected_count and video.get_frame_count() == 345
                 assert clip.texts == [f"Segment {i + 1}: continue dinner." for i in range(expected_count)]
                 assert events == [("encode", text) for text in clip.texts] + [
                     (stage, index + 1) for stage in ("sample", "decode") for index in range(expected_count)
@@ -595,11 +706,11 @@ def main():
             samples.clear()
             adjusted = planner.segment_schedule([(124, 0, 124), (90, 22, 68), (175, 22, 144)])
             with patch.object(long, "split_prompts", return_value=(adjusted, ["Greeting.", "Eating.", "Toast."])):
-                video, preview = node.execute(
+                video, preview, _ = node.execute(
                     None, Clip(), VideoVAE(), AudioVAE(), full_prompt, 14,
                     width=32, height=32, segment_seconds=5, prompt_api=api_settings).result
-            assert len(samples) == 3 and video.get_frame_count() == 336
-            assert 'final 8.000-14.000s' in preview and 'sampled 7.292s' in preview
+            assert len(samples) == 3 and video.get_frame_count() == 345
+            assert 'final 8.000-14.375s' in preview and 'sampled 7.292s' in preview
 
             samples.clear()
             clip = Clip()
@@ -651,7 +762,7 @@ def main():
             assert set(Path(temp).iterdir()) == files_before
         finally:
             folder_paths.set_temp_directory(original_temp)
-    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup")
+    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size")
 
 
 if __name__ == "__main__":

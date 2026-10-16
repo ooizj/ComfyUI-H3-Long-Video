@@ -128,11 +128,13 @@ def protect_dialogue_boundaries(schedule, events, fps):
 
     total = sum(s[2] for s in original)
     target = original[0][0]
+    # A continuation of an existing clip pins context on its first segment too.
+    first_overlap = original[0][1]
     context = original[1][1]
     tail_limit = align_frame_count(target + fps)
     plan, cursor = [], 0
     while cursor < total:
-        overlap = context if plan else 0
+        overlap = context if plan else first_overlap
         tail = align_frame_count(max(5, total - cursor + overlap))
         length = tail if tail <= tail_limit else target
         minimum = align_frame_count(max(5, overlap + fps))

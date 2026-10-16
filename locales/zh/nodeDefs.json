@@ -110,7 +110,7 @@
         "tooltip": "为整个视频写一份完整的 H3 提示词，需要时使用最终视频的时间戳。prompt_api 会把它适配到各采样段。"
       },
       "total_seconds": {
-        "tooltip": "24 fps 下的最终时长。段数根据 segment_seconds 和 context_length 自动计算。"
+        "tooltip": "24 fps 下的最终时长。段数根据 segment_seconds 和 context_length 自动计算。视频可能最多长 16 帧（0.67 秒），按 H3 帧网格向上取整，以便从结尾精确接续。"
       },
       "segment_seconds": {
         "tooltip": "每段采样的目标时长，包含重叠部分。显存允许时用 15 秒；段越短，编码、解码和衔接开销越多。Prompt API 可能为保持定时对白完整而重新分配或加长片段。最后一段可能延长约一秒，并按 H3 帧网格向上取整。"
@@ -129,6 +129,25 @@
       },
       "log_prompts": {
         "tooltip": "采样前把输入提示词、各段最终提示词、种子和任务 ID 保存到 output/h3_prompt_logs，包括 Prompt Builder 命中缓存时。AI 规划日志由 Prompt API 的 log_prompts 单独控制。"
+      },
+      "context_latent": {
+        "tooltip": "精确接续之前的 H3 片段，来自 H3 Long Video Load Latent 或另一个 Long Video 的 latent 输出。尺寸必须等于 width/height。新视频从它的结尾开始，用 Concatenate Video 拼接。context_latent 和 context_video 只能接一个。"
+      },
+      "context_video": {
+        "tooltip": "接续任意视频：固定它最后 context_length 帧画面和 audio_context_length 的声音。必须正好是 width x height、24 fps，不做任何缩放或转换。输出只含新内容，用 Concatenate Video 拼接。context_video 和 context_latent 只能接一个。"
+      },
+      "ref_image_size": {
+        "tooltip": "Ref2VA 模型的参考图尺寸。match 把参考图缩放到视频的像素面积；max 保留最高 2048 像素短边，身份还原最好，但采样可能慢好几倍。需要 H3 参考节点带 ref_image_size 的 ComfyUI 版本。"
+      },
+      "save_latents": {
+        "name": "⚠ 保存 latent",
+        "tooltip": "⚠ 把每段的 latent、MP4 和 manifest.json 保存到 output/h3_long_video/<运行>。这些文件不会自动删除，每次运行都会占用磁盘空间，请自行删除旧的运行。用 H3 Long Video Load Latent 加载它们来接续视频。"
+      }
+    },
+    "outputs": {
+      "2": {
+        "name": "latent",
+        "tooltip": "最后一段的 latent，接到另一个 Long Video 的 context_latent。"
       }
     }
   },
@@ -186,5 +205,17 @@
   },
   "MiniMaxH3PromptBackup": {
     "description": "编辑并输出图片和提示词。backup 保存到 output/h3_prompt_backups；load 预览并载入备份。"
+  },
+  "MiniMaxH3LongVideoLoadLatent": {
+    "display_name": "H3 Long Video Load Latent",
+    "description": "加载 H3 Long Video（开启 save_latents）保存的分段 latent，接到 Long Video 的 context_latent 以接续该视频。输出只用于 context_latent，不能接 VAE 解码。",
+    "inputs": {
+      "run": {
+        "tooltip": "output/h3_long_video 下的运行文件夹，最新的在前。latest 在排队时总是选最新的运行。新运行后按 R 刷新列表。"
+      },
+      "segment": {
+        "tooltip": "从第几段接续，从 1 开始计。0 = 最后保存的一段，即接续该运行视频的结尾。"
+      }
+    }
   }
 }

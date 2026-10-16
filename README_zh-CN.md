@@ -69,11 +69,13 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 - `first_frame`：可选首帧，只用于第一段开场。
 - `reference_images`：可选参考图，按 `<Picture N>` 顺序作用于所有段；可来自 Builder，也可用 Batch Images 组批。连接参考图时使用 Ref2VA 模型，否则使用兼容的 FL2VA/T2VA 模型。
 - `prompt_api`：把提示词拆分为各段提示词。视频需要多段时必须连接，否则节点拒绝运行，因为每段都会重复整片剧情。
+- `context_latent` / `context_video`：可选，接续之前的视频，见[接续视频](#接续视频)。
 - `prompt_preview`：输出实际各段提示词和时间窗口，可接文本显示节点查看。
+- `latent`：最后一段的 latent，可接到另一个 Long Video 的 `context_latent`。
 
 | 参数 | 默认值 | 用途 |
 | --- | --- | --- |
-| `total_seconds` | `30` | 最终视频总时长。 |
+| `total_seconds` | `30` | 最终视频总时长。视频可能最多长 16 帧（0.67 秒），按 H3 帧网格向上取整，以便从结尾精确接续。 |
 | `segment_seconds` | `15` | 每段采样目标时长，包含重叠；实际段长会受帧对齐及对白保护影响。 |
 | `width` / `height` | `960` / `544` | 输出尺寸，向上对齐到 32 的倍数。 |
 | `seed` | `0` | 各段使用 `seed + 段索引`，索引从 0 开始。 |
@@ -82,8 +84,19 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 | `context_length` | `22` | 视频续接的重叠帧数，可选 `5`、`22`、`39`、`56`。 |
 | `audio_context_length` | `24` | 音频续接窗口，以视频帧为单位；`0` 跟随视频重叠。 |
 | `tiled_decode` | `true` | 分块解码，降低解码显存。 |
+| `ref_image_size` | `match` | Ref2VA 参考图尺寸：`match` 缩放到视频的像素面积；`max` 保留最高 2048 像素短边，身份还原最好，但采样可能慢好几倍。需要 H3 参考节点带此选项的 ComfyUI。 |
+| `⚠ save_latents` | `true` | 把每段的 latent、MP4 和 `manifest.json` 保存到 `output/h3_long_video/<运行>`。**不会自动删除，请自行清理旧的运行。** |
 
 例如图中的 `total_seconds=14`、`segment_seconds=7` 表示分段生成一条约 14 秒的视频，段数无需手填。较短的分段通常可降低单次采样显存，但会增加编码、解码和续接开销，不一定更快。
+
+### 接续视频
+
+接入以下之一，新视频从它的结尾开始，`VIDEO` 只包含新内容，用 **Concatenate Video** 把两段拼起来。
+
+- `context_latent`：精确接续，不经过解码和重新编码。使用 **H3 Long Video Load Latent**（选择保存的 `run`；`segment` 为 `0` 时取最后一段），或另一个 Long Video 的 `latent` 输出。尺寸必须等于 `width`/`height`。
+- `context_video`：任意视频，固定它最后 `context_length` 帧画面和 `audio_context_length` 的声音。必须正好是 `width` x `height`、24 fps。
+
+不做任何缩放或转换：尺寸或帧率不一致时节点停止并说明原因。两个同时接入，或与 `first_frame` 一起接入，都会被拒绝。提示词只写新内容，从 0 秒开始。
 
 ### 为什么要拆分提示词
 

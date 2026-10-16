@@ -69,11 +69,13 @@ Connect the four model inputs, enter the full prompt and total duration, and con
 - `first_frame`: optional opening image, used only in the first segment.
 - `reference_images`: optional pictures in `<Picture N>` order, used across all segments. Connect Builder or combine images with Batch Images. Use a Ref2VA model with references, or a compatible FL2VA/T2VA model without them.
 - `prompt_api`: splits the prompt into segment prompts. Required when the video needs more than one segment; the node refuses to run without it, because every segment would repeat the whole story.
+- `context_latent` / `context_video`: optional, continue an earlier video; see [Continue a video](#continue-a-video).
 - `prompt_preview`: actual segment prompts and timing windows; connect a text-display node to inspect it.
+- `latent`: the last segment's latent, for another Long Video's `context_latent`.
 
 | Parameter | Default | Purpose |
 | --- | --- | --- |
-| `total_seconds` | `30` | Final video duration. |
+| `total_seconds` | `30` | Final video duration. The video can run up to 16 frames (0.67 s) longer, rounded up to H3's frame grid so its end can be continued exactly. |
 | `segment_seconds` | `15` | Target sampled duration per segment, including overlap; frame alignment and dialogue protection affect actual lengths. |
 | `width` / `height` | `960` / `544` | Output size, rounded up to multiples of 32. |
 | `seed` | `0` | Segment seeds are `seed + segment index`, starting at 0. |
@@ -82,8 +84,19 @@ Connect the four model inputs, enter the full prompt and total duration, and con
 | `context_length` | `22` | Video overlap in frames: `5`, `22`, `39` or `56`. |
 | `audio_context_length` | `24` | Audio continuation window in video-frame units; `0` follows the video overlap. |
 | `tiled_decode` | `true` | Tiled decoding to reduce decoding memory. |
+| `ref_image_size` | `match` | Ref2VA reference size: `match` scales references to the video's pixel area; `max` keeps up to a 2048 px short edge for best identity but can sample several times slower. Needs a ComfyUI whose H3 reference node has this option. |
+| `⚠ save_latents` | `true` | Saves every segment's latent, MP4 and `manifest.json` to `output/h3_long_video/<run>`. **Never deleted automatically; delete old runs yourself.** |
 
 The screenshot uses `total_seconds=14` and `segment_seconds=7` to generate an approximately 14-second video in segments. No manual segment count is needed. Shorter segments generally reduce memory per sampling pass, but add encoding, decoding and continuation overhead, so they are not necessarily faster.
+
+### Continue a video
+
+Connect one of these; the new video starts where it ends, and `VIDEO` contains only the new part. Join the two with **Concatenate Video**.
+
+- `context_latent`: exact continuation without decoding and re-encoding. Use **H3 Long Video Load Latent** (pick a saved `run`; `segment` `0` is the last one) or the `latent` output of another Long Video. Its size must equal `width`/`height`.
+- `context_video`: any video. Its last `context_length` frames and `audio_context_length` of sound are pinned. It must be exactly `width` x `height` at 24 fps.
+
+Nothing is resized or converted: a size or frame-rate mismatch stops the node with the reason. Connecting both, or `first_frame` together with either, is refused. Write the prompt for the new part only, starting from 0 seconds.
 
 ### Why split the prompt?
 

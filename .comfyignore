@@ -7,3 +7,6 @@ venv/
 .git/
 .github/
 .cursor/
+# Developer tools and their output, not part of the node pack.
+tools/
+dist/

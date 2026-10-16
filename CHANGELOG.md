@@ -8,6 +8,29 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## Unreleased
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
+
+- H3 Long Video can continue an earlier video:
+  - `context_latent` continues an H3 latent exactly, without decoding and
+    re-encoding.
+  - `context_video` continues any video from its last `context_length`
+    frames and `audio_context_length` of sound.
+  - Nothing is resized or converted: a size or frame-rate mismatch, both
+    inputs at once, or `first_frame` with either stops the node with the
+    reason.
+- New `latent` output: the last segment's latent, for another Long Video.
+- `⚠ save_latents`, on by default: saves every segment's latent, MP4 and
+  `manifest.json` to `output/h3_long_video/<run>`. These files are never
+  deleted automatically.
+- New **H3 Long Video Load Latent** node loads a saved segment latent for
+  `context_latent`.
+- `ref_image_size` (`match` / `max`) for Ref2VA reference images.
+- The video keeps the last segment's rounding up to H3's frame grid, so it
+  can run up to 16 frames (0.67 s) longer than `total_seconds`. Its end then
+  matches the last latent exactly, so continuing from it does not jump.
+
 ## 0.9.3 - 2026-10-15
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.

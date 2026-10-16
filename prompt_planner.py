@@ -74,6 +74,9 @@ clip's motion/audio. Describe its ongoing visual state in ONE short sentence
 inside [Shot 1], before the new actions; that state is at
 global_time_at_local_zero, not at retained_global_seconds[0], in the shot active
 at that time. Do not move an action that starts later into this opening sentence.
+When continues_existing_video is true, clip 1 also opens with an existing video's
+motion/audio that the source does not describe, so its global_time_at_local_zero
+is negative: describe the source's state at 0 seconds as already in progress.
 Never replay earlier dialogue or the onset of an action. Do not break an ongoing
 action into separate overlap/new-content paragraphs. Short visual fragments may
 share a paragraph, but retain their explicit event boundaries and cut markers.
@@ -471,6 +474,7 @@ def plan_prompts(prompt, schedule, input_mode, reference_image_count, model, var
             {"role": "user", "content": json.dumps({
                 "full_h3_prompt": source, "input_mode": input_mode,
                 "reference_image_count": reference_image_count,
+                "continues_existing_video": schedule[0]["overlap_frames"] > 0,
                 "clips": windows, "variation": variation,
             }, ensure_ascii=False)},
         ]}
