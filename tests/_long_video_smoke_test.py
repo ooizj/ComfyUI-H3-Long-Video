@@ -745,7 +745,7 @@ def main():
                     else None)):
                 node.execute(None, clip, vae, AudioVAE(), "<Video 1> speaks with <Audio 2>.", 7, width=32, height=32,
                              segment_seconds=5, prompt_api=api_settings, save_latents=False,
-                             reference_videos={"reference_video_0": ref_clip}, reference_audios={"reference_audio_0": voice})
+                             reference_videos={"reference_video_1": ref_clip}, reference_audios={"reference_audio_1": voice})
             assert [b["kind"] for b in samples[0][1]["minimax_refs"]] == ["video_audio", "audio"]
             assert all(s[1]["minimax_refs"] is samples[0][1]["minimax_refs"] for s in samples)
             assert [item["type"] for item in clip.calls[0]["minimax_ref_items"]] == ["audio", "video", "audio"]

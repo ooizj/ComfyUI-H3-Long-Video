@@ -144,10 +144,10 @@
         "tooltip": "⚠ 把每段的 latent、MP4 和 manifest.json 保存到 output/h3_long_video/<运行>。这些文件不会自动删除，每次运行都会占用磁盘空间，请自行删除旧的运行。用 H3 Long Video Load Latent 加载它们来接续视频。"
       },
       "reference_videos": {
-        "tooltip": "Ref2VA 模型的参考视频：<Video 1>、<Video 2> 等。2-15 秒效果最好，超出第一段长度的帧会被丢弃。视频自带的声音占用下一个 <Audio N>，编号排在 reference_audios 之前。参考在整条链中始终生效。"
+        "tooltip": "Ref2VA 模型的参考视频：reference_video_1 即 <Video 1>，依此类推。2-15 秒效果最好，超出第一段长度的帧会被丢弃。视频自带的声音占用下一个 <Audio N>，编号排在 reference_audios 之前。参考在整条链中始终生效。"
       },
       "reference_audios": {
-        "tooltip": "Ref2VA 模型的参考音频，例如音色：<Audio N>，编号排在参考视频的声音之后。参考在整条链中始终生效。"
+        "tooltip": "Ref2VA 模型的参考音频，例如音色：<Audio N>，编号排在参考视频的声音之后；没有视频声音时 reference_audio_1 即 <Audio 1>。参考在整条链中始终生效。"
       }
     },
     "outputs": {
