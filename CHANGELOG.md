@@ -8,7 +8,9 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
-## Unreleased
+## 0.11.0 - 2026-10-19
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
 
 - Long Video takes `reference_videos` and `reference_audios` (up to 3 each)
   for a Ref2VA model, attached to every segment like `reference_images`. A
