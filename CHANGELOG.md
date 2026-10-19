@@ -8,6 +8,24 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## Unreleased
+
+- Long Video takes `reference_videos` and `reference_audios` (up to 3 each)
+  for a Ref2VA model, attached to every segment like `reference_images`. A
+  reference video's soundtrack becomes the next `<Audio N>`, numbered before
+  `reference_audios`. Prompt API receives the counts of pictures, videos and
+  audio.
+- H3 Long Video Load Latent has a new `video` output: the run's saved
+  video up to the continuation point, cut on the same frame as the latent.
+  Join it with Long Video's `VIDEO` using **Concatenate Video**.
+- A line timed only by its shot now ends once spoken instead of filling
+  the shot. H3 repeated such lines to fill the range, and the stretched
+  line could push a segment end just before a cut, where the next segment
+  sometimes drew a character twice. Lines with their own time range and
+  sung lines keep their range.
+- Prompt planning no longer stops with "LLM speech text was changed" when
+  the LLM wraps an untagged line in a `<d>` block.
+
 ## 0.10.0 - 2026-10-16
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.

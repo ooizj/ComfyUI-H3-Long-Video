@@ -171,6 +171,20 @@ def context_video_tail(video, width, height, context_length, audio_context_lengt
     return images[-context_length:].clone(), audio
 
 
+def reference_video(video):
+    """Frames at H3's 24 fps and the soundtrack, or None, of a reference video."""
+    components = video.get_components()
+    images = components.images
+    rate = Fraction(components.frame_rate)
+    if rate != FPS:
+        count = max(1, math.floor(images.shape[0] * FPS / rate))
+        images = images[[min(images.shape[0] - 1, math.floor(i * rate / FPS)) for i in range(count)]]
+    audio = components.audio
+    if audio is not None and audio["waveform"].shape[-1] == 0:
+        audio = None
+    return images, audio
+
+
 class MiniMaxH3LongVideo(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -178,7 +192,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
             node_id="MiniMaxH3LongVideo",
             display_name="H3 Long Video (Simple)",
             category="video/minimax",
-            description="Generate short H3 clips, continue their motion and audio, and return one video. Connect VIDEO to Save Video. Requires ComfyUI's native Concatenate Video support. Use an FL2VA/T2VA model without references, or a Ref2VA model with reference images.",
+            description="Generate short H3 clips, continue their motion and audio, and return one video. Connect VIDEO to Save Video. Requires ComfyUI's native Concatenate Video support. Use an FL2VA/T2VA model without references, or a Ref2VA model with reference images, videos or audio.",
             inputs=[
                 io.Model.Input("model"),
                 io.Clip.Input("clip"),
@@ -216,6 +230,16 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                     tooltip="Reference image size for a Ref2VA model. 'match' scales references to the video's pixel area; 'max' keeps up to a 2048 px short edge for best identity, but sampling can be several times slower. Needs a ComfyUI version whose H3 reference node has ref_image_size."),
                 io.Boolean.Input("save_latents", display_name="⚠ save_latents", default=True, optional=True,
                     tooltip="⚠ Saves every segment's latent and MP4 plus manifest.json to output/h3_long_video/<run>. These files are never deleted automatically and use disk space on every run; delete old runs yourself. Load them with H3 Long Video Load Latent to continue a video."),
+                io.Autogrow.Input("reference_videos", optional=True,
+                    template=io.Autogrow.TemplatePrefix(
+                        input=io.Video.Input("reference_video",
+                            tooltip="Reference video for a Ref2VA model: <Video 1>, <Video 2>, etc. 2-15 s works best; frames past the first segment's length are dropped. Its soundtrack, if any, becomes the next <Audio N>, numbered before reference_audios. References stay attached throughout the chain."),
+                        prefix="reference_video_", min=0, max=3)),
+                io.Autogrow.Input("reference_audios", optional=True,
+                    template=io.Autogrow.TemplatePrefix(
+                        input=io.Audio.Input("reference_audio",
+                            tooltip="Reference audio for a Ref2VA model, such as a voice: <Audio N>, numbered after the soundtracks of reference_videos. References stay attached throughout the chain."),
+                        prefix="reference_audio_", min=0, max=3)),
             ],
             outputs=[io.Video.Output(), io.String.Output(display_name="prompt_preview"),
                      io.Latent.Output(display_name="latent", tooltip="Last segment's latent, for another Long Video's context_latent.")],
@@ -227,7 +251,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 sampler_name="res_multistep", scheduler="simple", context_length="22",
                 audio_context_length=24, tiled_decode=True, first_frame=None, context_latent=None,
                 context_video=None, reference_images=None, prompt_api=None, log_prompts=True,
-                ref_image_size="match", save_latents=True):
+                ref_image_size="match", save_latents=True, reference_videos=None, reference_audios=None):
         if not hasattr(InputImpl, "VideoFromList"):
             raise RuntimeError("H3 Long Video needs native Concatenate Video support. Update ComfyUI to use this node.")
         width = max(32, math.ceil(width / 32) * 32)
@@ -253,14 +277,29 @@ class MiniMaxH3LongVideo(io.ComfyNode):
         plan = plan_segments(total_seconds, segment_seconds, int(context_length), continuing=bool(continues))
         schedule = segment_schedule(plan)
         prompts = [prompt] * len(plan)
-        reference_count = len(reference_images) if reference_images is not None else 0
+        references = {}
+        if reference_images is not None:
+            references["ref_images"] = {f"ref_image_{i}": img.unsqueeze(0) for i, img in enumerate(reference_images)}
+        for name, video in (reference_videos or {}).items():
+            if video is None:
+                continue
+            number = name.rsplit("_", 1)[-1]
+            frames, soundtrack = reference_video(video)
+            references.setdefault("ref_videos", {})[f"ref_video_{number}"] = frames
+            if soundtrack is not None:
+                references.setdefault("ref_video_audios", {})[f"ref_video_audio_{number}"] = soundtrack
+        audios = {name: audio for name, audio in (reference_audios or {}).items() if audio is not None}
+        if audios:
+            references["ref_audios"] = audios
+        reference_counts = {"Picture": len(references.get("ref_images", ())), "Video": len(references.get("ref_videos", ())),
+                            "Audio": len(references.get("ref_video_audios", ())) + len(audios)}
         if len(plan) > 1:
             if prompt_api is None:
                 raise ValueError(f"H3 Long Video: this video needs {len(plan)} segments, so connect H3 Prompt API to prompt_api to "
                                  "split the prompt; without it every segment repeats the whole story. For one segment, set "
                                  "total_seconds no higher than segment_seconds.")
-            input_mode = "Ref2VA" if reference_count else "I2VA" if first_frame is not None else "T2VA"
-            schedule, prompts = split_prompts(prompt, schedule, input_mode, reference_count, **prompt_api)
+            input_mode = "Ref2VA" if references else "I2VA" if first_frame is not None else "T2VA"
+            schedule, prompts = split_prompts(prompt, schedule, input_mode, reference_counts, **prompt_api)
             plan = [(s["sampled_frames"], s["overlap_frames"], s["retained_frames"]) for s in schedule]
         # Keep the last clip's rounding up to H3's grid too (at most 16 frames), so the video ends where its
         # latent ends and can be continued without a jump. Prompts treat those frames as a padded tail.
@@ -278,7 +317,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 "seeds": seeds,
                 "width": width, "height": height, "steps": steps,
                 "sampler_name": sampler_name, "scheduler": scheduler,
-                "reference_image_count": reference_count, "has_first_frame": first_frame is not None,
+                "reference_counts": reference_counts, "has_first_frame": first_frame is not None,
                 "continues": continues,
             }
             text = (f"Seeds: {report['seeds']}\nSize: {width}x{height}\nSteps: {steps}\n"
@@ -287,7 +326,6 @@ class MiniMaxH3LongVideo(io.ComfyNode):
             write_prompt_log(new_prompt_log_path("video"), report, text, (prompt_api or {}).get("api_key", ""))
         sampler, = KSamplerSelect.execute(sampler_name).result
         sigmas, = BasicScheduler.execute(model, scheduler, steps, 1.0).result
-        references = {f"ref_image_{i}": img.unsqueeze(0) for i, img in enumerate(reference_images)} if reference_images is not None else {}
         context = MiniMaxH3MotionContext()
         trim = MiniMaxH3MotionContextTrim()
         sampling_steps = max(0, sigmas.shape[-1] - 1)
@@ -307,7 +345,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 "width": width, "height": height, "fps": FPS, "total_seconds": total_seconds,
                 "segment_seconds": segment_seconds, "context_length": int(context_length),
                 "audio_context_length": audio_context_length, "steps": steps, "sampler_name": sampler_name,
-                "scheduler": scheduler, "reference_image_count": reference_count,
+                "scheduler": scheduler, "reference_counts": reference_counts,
                 "has_first_frame": first_frame is not None, "continues": continues, "original_prompt": prompt,
                 "segments": [{**entry, "prompt": text, "seed": seeds[i], "latent": None, "video": None}
                              for i, (entry, text) in enumerate(zip(schedule, prompts))],
@@ -333,9 +371,9 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                         if references:
                             conditioning, latent = MiniMaxH3ReferenceToVideo.execute(
                                 clip=clip, vae=vae if reference_latents is None else None,
-                                audio_vae=audio_vae, prompt=prompt,
+                                audio_vae=audio_vae if reference_latents is None else None, prompt=prompt,
                                 width=width, height=height, length=length,
-                                ref_images=references, **ref_size).result
+                                **references, **ref_size).result
                             if reference_latents is None:
                                 reference_latents = conditioning[0][1]["minimax_refs"]
                             else:

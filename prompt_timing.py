@@ -15,6 +15,20 @@ _PAUSE = re.compile(r"(?<=[。！？；，、…])|(?<=[.!?;,])(?=\s)")
 # between them; the earlier line just has to finish up to 0.67s sooner than stated.
 LINE_END_SLACK = 16
 FULL_WIDTH_SPEAKER = re.compile(r"（(S\d+)）")
+# Speaking time for a line that only has its shot's range, kept on the slow side so a cap never rushes a
+# line: about 4 CJK characters or 2.5 words a second, longer words by letter, plus pauses and a lead-in.
+_SYLLABLE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]")
+_WORD = re.compile(r"[^\W_]+")
+_INNER_PAUSE = re.compile(r"[。！？；，、…,.!?;:：]+(?=.*[^\W_])")
+SYLLABLE_SECONDS = 0.25
+WORD_SECONDS = 0.4
+LETTER_SECONDS = 0.08
+PAUSE_SECONDS = 0.3
+LEAD_SECONDS = 0.5
+# The LLM's from_shot sometimes misses a song, so words leading into a line that mark it as sung keep its range.
+_SUNG = re.compile(r"\b(?:sings?|singing|sang|sung|songs?|hums?|humming|hummed|chants?|chanting|chanted|raps?|rapping|rapped|lyrics?)\b"
+                   r"|唱|哼|歌|诵|吟|노래", re.IGNORECASE)
+_CLAUSE_END = re.compile(r"\n|</d>|[。！？!?]|\.(?=\s)")
 EVENT_KINDS = ("cut", "action", "sound", "music")
 FIRST_FRAME_INSTRUCTION ="For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced."
 
@@ -37,6 +51,10 @@ def validate_timeline(timeline, source):
         if not isinstance(event, dict):
             raise RuntimeError("LLM returned an invalid speech range.")
         passage = event.get("text")
+        block = _DIALOGUE.fullmatch(passage.strip()) if isinstance(passage, str) and passage not in source else None
+        if block:
+            # Some LLMs wrap an untagged line in a <d> block like the example; keep the line as the source has it.
+            passage = event["text"] = _LANGUAGE.sub("", block.group(1), count=1).strip()
         if not isinstance(passage, str) or not passage.strip() or passage not in source:
             raise RuntimeError("LLM speech text was changed or is missing from the original prompt.")
         start, end = event.get("start_seconds"), event.get("end_seconds")
@@ -68,6 +86,28 @@ def queue_shared_speech(events):
             event["start_seconds"] = round(start + (end - start) * done / sum(sizes), 2)
             done += size
             event["end_seconds"] = round(start + (end - start) * done / sum(sizes), 2)
+    return events
+
+
+def speaking_seconds(text):
+    spoken = " ".join(_LANGUAGE.sub("", d, count=1) for d in _DIALOGUE.findall(text)) or text
+    syllables = len(_SYLLABLE.findall(spoken))
+    words = _WORD.findall(_SYLLABLE.sub(" ", spoken))
+    return (syllables * SYLLABLE_SECONDS + sum(max(WORD_SECONDS, len(w) * LETTER_SECONDS) for w in words)
+            + len(_INNER_PAUSE.findall(spoken)) * PAUSE_SECONDS + LEAD_SECONDS)
+
+
+def sung(event, source):
+    start = source.find(event["text"])
+    return bool(_SUNG.search(_CLAUSE_END.split(source[max(0, start - 60):start])[-1]))
+
+
+def cap_shot_speech(events, source):
+    """A line timed only by its shot would be stretched over the whole shot, and H3 then repeats it to fill
+    the range. Such lines keep their start but end once spoken; lines with their own range or sung are kept."""
+    for event in events:
+        if event.get("from_shot") is True and not sung(event, source):
+            event["end_seconds"] = round(min(event["end_seconds"], event["start_seconds"] + speaking_seconds(event["text"])), 2)
     return events
 
 

@@ -34,6 +34,7 @@ motion = importlib.import_module(PACKAGE.name + ".nodes")
 planner = importlib.import_module(PACKAGE.name + ".prompt_planner")
 timing = importlib.import_module(PACKAGE.name + ".prompt_timing")
 store = importlib.import_module(PACKAGE.name + ".segment_store")
+REFS = {"Picture": 3, "Video": 0, "Audio": 0}
 
 
 def test_progress_scope():
@@ -178,7 +179,7 @@ def test_prompt_api():
         post.assert_not_called()
         assert settings["local_llm"] is False and settings["unload_url"] == ""
         post.side_effect = [response(timeline), response({"prompts": expected})]
-        assert split(full_prompt, schedule, "Ref2VA", 3, **settings) == (schedule, expected)
+        assert split(full_prompt, schedule, "Ref2VA", REFS, **settings) == (schedule, expected)
         assert post.call_count == 2
         first, second = post.call_args_list
         assert first.args == ("https://api.deepseek.com/chat/completions",)
@@ -192,7 +193,7 @@ def test_prompt_api():
             assert payload["response_format"] == {"type": "json_object"}
             assert [m["role"] for m in payload["messages"]] == ["system", "user"]
         request = json.loads(second.kwargs["json"]["messages"][1]["content"])
-        assert request["full_h3_prompt"] == full_prompt and request["reference_image_count"] == 3
+        assert request["full_h3_prompt"] == full_prompt and request["reference_counts"] == REFS
         assert request["input_mode"] == "Ref2VA" and len(request["clips"]) == 2
         assert request["continues_existing_video"] is False
         assert request["clips"][0]["speech"][0]["local_seconds"] == [0, 3]
@@ -235,13 +236,13 @@ def test_prompt_api():
         post.reset_mock()
         post.side_effect = [response(timeline), response({"prompts": expected}), MagicMock()]
         with patch.object(planner.comfy.model_management, "unload_all_models"):
-            assert split(full_prompt, schedule, "Ref2VA", 3, **swap)[1] == expected
+            assert split(full_prompt, schedule, "Ref2VA", REFS, **swap)[1] == expected
         assert [c.args[0] for c in post.call_args_list] == ["http://127.0.0.1:8081/v1/chat/completions"] * 2 + ["http://127.0.0.1:8081/api/models/unload"]
         post.reset_mock()
         post.side_effect = [response(timeline), response({}, status=500), MagicMock()]
         with patch.object(planner.comfy.model_management, "unload_all_models"):
             try:
-                split(full_prompt, schedule, "Ref2VA", 3, **swap)
+                split(full_prompt, schedule, "Ref2VA", REFS, **swap)
             except RuntimeError:
                 pass
             else:
@@ -255,7 +256,7 @@ def test_prompt_api():
         post.reset_mock()
         post.side_effect = [response(timeline), response({"prompts": clips})]
         with patch.object(planner.comfy.model_management, "unload_all_models"):
-            prompts = split(full_prompt, schedule, "Ref2VA", 3, **structured)[1]
+            prompts = split(full_prompt, schedule, "Ref2VA", REFS, **structured)[1]
         assert prompts[1] == "\n\n".join(f"{name}:\n{expected[1] if name == 'detailed_description' else 'N/A'}" for name in sections)
         timeline_call, prompts_call = post.call_args_list
         assert timeline_call.kwargs["json"]["response_format"]["json_schema"]["schema"] == planner.TIMELINE_SCHEMA
@@ -269,7 +270,7 @@ def test_prompt_api():
                   {"kind": "music", "start_seconds": 2, "end_seconds": 14, "text": "piano from 2 seconds"}]
         post.reset_mock()
         post.side_effect = [response({**timeline, "events": events}), response({"prompts": expected})]
-        split(full_prompt, schedule, "Ref2VA", 3, **settings)
+        split(full_prompt, schedule, "Ref2VA", REFS, **settings)
         assert json.loads(post.call_args_list[0].kwargs["json"]["messages"][1]["content"])["total_seconds"] == 14
         clips = json.loads(post.call_args.kwargs["json"]["messages"][1]["content"])["clips"]
         assert clips[0]["events"] == [{"kind": "cut", "local_time": "00:07.500", "text": "cut to the glasses"},
@@ -281,22 +282,26 @@ def test_prompt_api():
         for bad in [{"kind": "lighting"}, {"end_seconds": 1}, {"text": " "}, "cut"]:
             post.side_effect = [response({**timeline, "events": [events[0] | bad if isinstance(bad, dict) else bad]})]
             try:
-                split(full_prompt, schedule, "Ref2VA", 3, **settings)
+                split(full_prompt, schedule, "Ref2VA", REFS, **settings)
             except RuntimeError as error:
                 assert "invalid timed event" in str(error)
             else:
                 raise AssertionError("Invalid timed events must fail")
+        # A line timed only by its shot reaches the clip prompts ending once spoken.
+        post.side_effect = [response({"speech": [dict(speech[0], end_seconds=7.5, from_shot=True)]}), response({"prompts": expected})]
+        split(full_prompt, schedule, "Ref2VA", REFS, **settings)
+        assert json.loads(post.call_args.kwargs["json"]["messages"][1]["content"])["clips"][0]["speech"][0]["local_seconds"] == [0, 1]
 
         post.reset_mock()
         post.side_effect = [response(timeline), response({"prompts": expected})]
-        first = split(full_prompt, schedule, "Ref2VA", 3, **settings)
-        assert planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **settings) == first and post.call_count == 2
+        first = split(full_prompt, schedule, "Ref2VA", REFS, **settings)
+        assert planner.split_prompts(full_prompt, schedule, "Ref2VA", REFS, **settings) == first and post.call_count == 2
         post.side_effect = [response(timeline), response({"prompts": expected})]
-        planner.split_prompts(full_prompt, schedule, "Ref2VA", 3, **(settings | {"variation": 1}))
+        planner.split_prompts(full_prompt, schedule, "Ref2VA", REFS, **(settings | {"variation": 1}))
         assert post.call_count == 4
 
         post.side_effect = [response(timeline), response({"prompts": [expected[0].replace("the man", "<Subject 1>（S1）"), expected[1]]})]
-        prompts = split(full_prompt, schedule, "Ref2VA", 3, **settings)[1]
+        prompts = split(full_prompt, schedule, "Ref2VA", REFS, **settings)[1]
         assert prompts[0].startswith("From 0 to 3 seconds, <Subject 1>(S1) says") and "（" not in prompts[0]
 
         invalid = [
@@ -307,14 +312,14 @@ def test_prompt_api():
         for content in invalid:
             post.side_effect = [response(timeline), response(content)]
             try:
-                split(full_prompt, schedule, "Ref2VA", 3, **settings)
+                split(full_prompt, schedule, "Ref2VA", REFS, **settings)
             except RuntimeError:
                 pass
             else:
                 raise AssertionError("Bad prompts must fail before sampling")
         post.side_effect = [response(timeline), response({}, finish="length")]
         try:
-            split(full_prompt, schedule, "Ref2VA", 3, **settings)
+            split(full_prompt, schedule, "Ref2VA", REFS, **settings)
         except RuntimeError as error:
             assert "truncated" in str(error)
         else:
@@ -336,14 +341,14 @@ def test_prompt_api():
         ]:
             post.side_effect = [response(bad)]
             try:
-                split(full_prompt, schedule, "Ref2VA", 3, **settings)
+                split(full_prompt, schedule, "Ref2VA", REFS, **settings)
             except RuntimeError:
                 pass
             else:
                 raise AssertionError("Invalid speech data must fail")
         files_before = set(log_directory.iterdir())
         post.side_effect = [response(timeline), response({"prompts": expected})]
-        split(full_prompt, schedule, "Ref2VA", 3, **(settings | {"log_prompts": False}))
+        split(full_prompt, schedule, "Ref2VA", REFS, **(settings | {"log_prompts": False}))
         assert set(log_directory.iterdir()) == files_before
         continuous = 'From 0-14s the speaker says <d>[Chinese] 你好！</d>.'
         post.reset_mock()
@@ -363,11 +368,11 @@ def test_prompt_api():
             return response({"prompts": [" ".join(s["text"] for s in clip["speech"]) or "They listen." for clip in request["clips"]]})
         post.side_effect = reply
         final_schedule, final_prompts = split("From 0-14s the speaker says " + line,
-                                              planner.segment_schedule(long.plan_segments(14, 5, 22)), "Ref2VA", 3, **settings)
+                                              planner.segment_schedule(long.plan_segments(14, 5, 22)), "Ref2VA", REFS, **settings)
         assert len(final_schedule) == 3 and "".join(final_prompts).count("<d>") == 4
         post.side_effect = [response({}, status=401)]
         try:
-            split(full_prompt, schedule, "Ref2VA", 3, **settings)
+            split(full_prompt, schedule, "Ref2VA", REFS, **settings)
         except RuntimeError as error:
             assert "401" in str(error) and "smoke-test-placeholder" not in str(error)
         else:
@@ -377,14 +382,14 @@ def test_prompt_api():
         rejected.json.return_value = {"error": {"code": 500, "message": "image input is not supported - hint: provide the mmproj"}}
         post.side_effect = [rejected]
         try:
-            split(full_prompt, schedule, "Ref2VA", 3, **settings)
+            split(full_prompt, schedule, "Ref2VA", REFS, **settings)
         except RuntimeError as error:
             assert "HTTP 500: image input is not supported" in str(error)
         else:
             raise AssertionError("HTTP errors must propagate")
         post.side_effect = [response(timeline), response({"prompts": [expected[0], expected[1], "summary:"]})]
         try:
-            split(full_prompt, schedule, "Ref2VA", 3, **settings)
+            split(full_prompt, schedule, "Ref2VA", REFS, **settings)
         except RuntimeError as error:
             assert "must return 2 nonempty prompts" in str(error) and "returned 3 nonempty of 3" in str(error)
         else:
@@ -392,7 +397,7 @@ def test_prompt_api():
     with patch.object(planner.requests, "post") as post:
         for url in ["file:///tmp/key", "https://name:secret@example.test/v1", ""]:
             try:
-                split(full_prompt, schedule, "Ref2VA", 3, **(settings | {"api_url": url}))
+                split(full_prompt, schedule, "Ref2VA", REFS, **(settings | {"api_url": url}))
             except ValueError as error:
                 assert "API URL" in str(error) and "secret" not in str(error)
             else:
@@ -447,6 +452,40 @@ def test_dialogue_boundaries():
              {"start_seconds": 40, "end_seconds": 65, "text": "<d>[Chinese] 我是守了五百年的人。</d>"},
              {"start_seconds": 65, "end_seconds": 70, "text": "<d>[Chinese] 走吧。</d>"}]
     assert [(e["start_seconds"], e["end_seconds"]) for e in timing.queue_shared_speech(block)] == [(40, 47.14), (47.14, 65), (65, 70)]
+
+    # An untagged line the LLM wrapped in a <d> block is read back as the source has it.
+    wrapped = {"speech": [{"start_seconds": 0, "end_seconds": 3, "from_shot": True, "text": "<d>[Chinese] 慢点吃，小心烫哦。</d>"}]}
+    assert timing.validate_timeline(wrapped, '她说："慢点吃，小心烫哦。"')[0][0]["text"] == "慢点吃，小心烫哦。"
+
+    # A line timed only by its shot ends once spoken instead of filling the shot, which H3 fills by repeating it.
+    # Its own range, a sung line and a line without from_shot keep their range; a cap never lengthens a line.
+    # A line the LLM marks from_shot is still kept when the words leading into it say it is sung.
+    lines = [(15.5, 23, True, "她骄傲地宣布：", "大厨嘎嘎正在施展魔法！"), (0, 7.5, False, "他说：", "<d>[Chinese] 你好！</d>"),
+             (30, 40, False, "她唱：", "<d>[Chinese] 月亮代表我的心。</d>"), (40, 48, None, "他说：", "<d>[Chinese] 走吧。</d>"),
+             (50, 52, True, "旁白：", "<d>[Chinese] 很久以前，山上住着一位剑客。</d>"), (60, 70, True, "She says: ", "<d>[English] Slow down, it's hot.</d>"),
+             (70, 80, True, "", "<d>[Japanese] ねえ、見て！大きな大根が抜けたよ！</d>"), (80, 90, True, "他说：", "我们去 Starbucks 买一杯 latte 吧。"),
+             (90, 100, True, "Cut to a close-up as she sings: ", "<d>[English] Fly me to the moon.</d>"),
+             (100, 110, True, "<Subject 1>抱着婴儿，哼唱摇篮曲：", "<d>[Chinese] 月儿明，风儿静。</d>"),
+             (110, 120, True, "The singer (S1) bows. Then she says: ", "<d>[English] Thank you, good night.</d>")]
+    source = "".join(lead + t for *_, lead, t in lines)
+    lines = [{"start_seconds": a, "end_seconds": b, "text": t} | ({} if s is None else {"from_shot": s}) for a, b, s, _, t in lines]
+    assert [(e["start_seconds"], e["end_seconds"]) for e in timing.cap_shot_speech(lines, source)] == [
+        (15.5, 18.5), (0, 7.5), (30, 40), (40, 48), (50, 52), (60, 62.8), (70, 74.6), (80, 83.37), (90, 100), (100, 110),
+        (110, 112.4)]
+    # Two lines sharing a shot are queued first, then each ends once spoken.
+    shared = [dict(line, from_shot=True) for line in block[:2]]
+    queued = timing.cap_shot_speech(timing.queue_shared_speech(shared), "".join(e["text"] for e in shared))
+    assert [(e["start_seconds"], e["end_seconds"]) for e in queued] == [(40, 41.25), (47.14, 49.89)]
+    # 2026-10-17 run: shot-long lines pushed a segment end 0.125 s before the 23 s cut, and the next segment drew a
+    # second penguin girl. Capped, that segment ends 1.54 s earlier and its line gets 3 s instead of 7.5 s.
+    run = [(0, 7.5, "看！我拔到了一个大萝卜！"), (7.5, 12.5, "咕咕真棒，今晚做热腾腾的萝卜炖汤好不好？"),
+           (12.5, 15.5, "好耶！还要加满满的菜叶！"), (15.5, 23, "大厨嘎嘎正在施展魔法！"), (23, 30, "慢点吃，小心烫哦。")]
+    run = timing.cap_shot_speech([{"start_seconds": a, "end_seconds": b, "from_shot": True, "text": t} for a, b, t in run],
+                                 "".join(t for *_, t in run))
+    assert [e["end_seconds"] for e in run] == [3.3, 12.5, 15.5, 18.5, 25.55]
+    capped = planner.segment_schedule(timing.protect_dialogue_boundaries(
+        planner.segment_schedule(long.plan_segments(30, 10, 22)), run, 24))
+    assert [s["final_end_seconds"] for s in capped] == [12.25, 515 / 24, 30]
 
     for context in (5, 22, 39, 56):
         initial = planner.segment_schedule(long.plan_segments(30, 5, context))
@@ -583,11 +622,12 @@ def main():
             long_video, long_latent = video, last_latent
 
             # Load Latent: 'latest' and segment 0 pick the last saved segment.
-            loaded, info = store.MiniMaxH3LongVideoLoadLatent.execute(store.LATEST, 0).result
+            loaded, info, loaded_video = store.MiniMaxH3LongVideoLoadLatent.execute(store.LATEST, 0).result
             assert torch.all(loaded["samples"][0] == 7) and torch.all(loaded["samples"][1] == 7)
-            assert "segment 7/7" in info
-            third, _ = store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3).result
+            assert "segment 7/7" in info and loaded_video.get_frame_count() == total_frames
+            third, _, third_video = store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3).result
             assert torch.all(third["samples"][0] == 3)
+            assert third_video.get_frame_count() == sum(keep for _, _, keep in kept[:3])
             for run, segment in [(run_name, 8), ("../elsewhere", 1)]:
                 try:
                     store.MiniMaxH3LongVideoLoadLatent.execute(run, segment)
@@ -603,10 +643,16 @@ def main():
             assert all((f - 5) % 17 == 0 and f >= store.MIN_CUT_FRAMES for f, _ in cuts)
             assert abs(cuts[-1][1] - manifest["segments"][2]["final_end_seconds"]) < 1e-9
             cut_frames, cut_time = cuts[0]
-            cut, cut_info = store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3, cut_frames).result
+            cut, cut_info, cut_video = store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3, cut_frames).result
             assert cut["samples"][0].shape[2] == (cut_frames - 5) // 17 * 5 + 2
             assert cut["samples"][1].shape[-1] == round(cut_frames * 5 / 3)
             assert f"{cut_time:.2f}s" in cut_info
+            # video: the saved picture and sound up to the cut, ending inside segment 3.
+            components = cut_video.get_components()
+            assert components.images.shape[0] == round(cut_time * long.FPS)
+            assert abs(float(components.images[-1].mean()) - 0.3) < 0.03
+            assert components.audio["waveform"].shape[-1] == round(cut_time * components.audio["sample_rate"])
+            del components
             try:
                 store.MiniMaxH3LongVideoLoadLatent.execute(run_name, 3, cut_frames + 1)
             except ValueError as error:
@@ -686,11 +732,30 @@ def main():
                                  reference_images=torch.zeros(1, 64, 64, 3), ref_image_size=size, save_latents=False)
                     assert samples[0][1]["minimax_refs"][0]["latent_h"] == latent_h
 
+            # A 30 fps reference video is resampled to 24 fps; its soundtrack is <Audio 1>, reference_audio <Audio 2>.
+            samples.clear()
+            clip = Clip()
+            vae = VideoVAE()
+            ref_clip = InputImpl.VideoFromComponents(Types.VideoComponents(
+                images=torch.zeros(60, 32, 32, 3), frame_rate=Fraction(30),
+                audio={"waveform": torch.zeros(1, 2, 64000), "sample_rate": 32000}))
+            voice = {"waveform": torch.zeros(1, 1, 16000), "sample_rate": 16000}
+            with patch.object(long, "split_prompts", side_effect=lambda prompt, schedule, mode, counts, **kwargs: (
+                    (schedule, [prompt] * len(schedule)) if mode == "Ref2VA" and counts == {"Picture": 0, "Video": 1, "Audio": 2}
+                    else None)):
+                node.execute(None, clip, vae, AudioVAE(), "<Video 1> speaks with <Audio 2>.", 7, width=32, height=32,
+                             segment_seconds=5, prompt_api=api_settings, save_latents=False,
+                             reference_videos={"reference_video_0": ref_clip}, reference_audios={"reference_audio_0": voice})
+            assert [b["kind"] for b in samples[0][1]["minimax_refs"]] == ["video_audio", "audio"]
+            assert all(s[1]["minimax_refs"] is samples[0][1]["minimax_refs"] for s in samples)
+            assert [item["type"] for item in clip.calls[0]["minimax_ref_items"]] == ["audio", "video", "audio"]
+            assert vae.encoded[0].shape[0] == 39
+
             full_prompt = "detailed_description: [Shot 1] A continuous 14-second dinner conversation."
             def adapt(prompt, schedule, mode, reference_count, **settings):
                 assert prompt == full_prompt and settings == api_settings
                 assert schedule == planner.segment_schedule(long.plan_segments(14, segment_seconds, 22))
-                assert mode == expected_mode and reference_count == expected_refs
+                assert mode == expected_mode and reference_count == {"Picture": expected_refs, "Video": 0, "Audio": 0}
                 return schedule, [f"Segment {s['segment']}: continue dinner." for s in schedule]
 
             for segment_seconds, expected_count, expected_mode, expected_refs in [
@@ -780,7 +845,7 @@ def main():
             assert set(Path(temp).iterdir()) == files_before
         finally:
             folder_paths.set_temp_directory(original_temp)
-    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size")
+    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size, reference videos and audio")
 
 
 if __name__ == "__main__":

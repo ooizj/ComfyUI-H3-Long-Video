@@ -20,7 +20,7 @@ import os
 from aiohttp import web
 
 import folder_paths
-from comfy_api.latest import io
+from comfy_api.latest import InputImpl, io
 from server import PromptServer
 
 from .nodes import FPS, FRAME_RESCALE, _st_load, _st_save, _steps_for_frames, _streams_from_latent, _write_safetensors
@@ -187,7 +187,7 @@ class MiniMaxH3LongVideoLoadLatent(io.ComfyNode):
             node_id="MiniMaxH3LongVideoLoadLatent",
             display_name="H3 Long Video Load Latent",
             category="video/minimax",
-            description="Load a segment latent saved by H3 Long Video (save_latents on) and connect it to Long Video's context_latent to continue that video. The output is for context_latent only, not for VAE decoding.",
+            description="Load a segment latent saved by H3 Long Video (save_latents on) and connect it to Long Video's context_latent to continue that video. The latent is for context_latent only, not for VAE decoding. video is the saved video up to the continuation point: join it with Long Video's VIDEO using Concatenate Video.",
             inputs=[
                 io.Combo.Input("run", options=[LATEST, *list_runs()], default=LATEST,
                     tooltip=f"A run folder in output/{RUNS_FOLDER}, newest first. 'latest' always picks the newest run when queued. Set by Preview and choose..."),
@@ -196,7 +196,9 @@ class MiniMaxH3LongVideoLoadLatent(io.ComfyNode):
                 io.Int.Input("frames", default=0, min=0, max=100000,
                     tooltip="Cut the segment after this many of its sampled frames and continue from there; 0 = the whole segment. Only points on H3's 17 frame grid can be continued exactly; Preview and choose... offers them."),
             ],
-            outputs=[io.Latent.Output(display_name="latent"), io.String.Output(display_name="info")],
+            outputs=[io.Latent.Output(display_name="latent"), io.String.Output(display_name="info"),
+                     io.Video.Output(display_name="video",
+                         tooltip="This run's saved video from its start up to the continuation point. Join it with Long Video's VIDEO using Concatenate Video. If this run itself continued another video, that video is not included.")],
         )
 
     @classmethod
@@ -216,7 +218,6 @@ class MiniMaxH3LongVideoLoadLatent(io.ComfyNode):
         data = _st_load(path)
         if "video" not in data or "audio" not in data:
             raise ValueError(f"H3 Long Video Load Latent: {path} has no video/audio streams.")
-        # Copy off the memory map so the file can be replaced later on Windows.
         entry = manifest["segments"][number - 1]
         cuts = dict(cut_points(entry))
         frames = frames or entry["sampled_frames"]
@@ -231,9 +232,13 @@ class MiniMaxH3LongVideoLoadLatent(io.ComfyNode):
         info = (f"{os.path.basename(os.path.dirname(path))} segment {number}/{manifest.get('segments_saved')}, "
                 f"continues at {cuts[frames]:.2f}s ({frames}/{entry['sampled_frames']} frames), "
                 f"{manifest.get('width')}x{manifest.get('height')}, context_length {manifest.get('context_length')}")
+        # Segment MP4s hold sampled_frames - overlap_frames frames, so a cut keeps frames - overlap_frames of the last one.
+        clips = [InputImpl.VideoFromFile(segment_file(os.path.dirname(path), i, "mp4")) for i in range(number)]
+        if frames < entry["sampled_frames"]:
+            clips[-1] = clips[-1].as_trimmed(0, (frames - entry["overlap_frames"]) / FPS)
         _LOG.info("H3 Long Video Load Latent: loaded %s (%s)", path, info)
         # A plain list like H3 Motion Context Load Latent: only context_latent inputs accept it.
-        return io.NodeOutput({"samples": [video, audio]}, info)
+        return io.NodeOutput({"samples": [video, audio]}, info, InputImpl.VideoFromList(clips))
 
 
 NODE_CLASS_MAPPINGS = {"MiniMaxH3LongVideoLoadLatent": MiniMaxH3LongVideoLoadLatent}

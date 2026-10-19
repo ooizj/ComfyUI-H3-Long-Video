@@ -46,6 +46,7 @@ The examples keep LoRA/attention settings inside their model subgraphs; adjust t
 | `prompt`, `total_seconds` | The whole story and its duration. |
 | `prompt_api` | Splits the prompt into segment prompts. Required for more than one segment. |
 | `reference_images` | Optional pictures in `<Picture N>` order, used in every segment. Use a Ref2VA model with references, or a compatible FL2VA/T2VA model without them. |
+| `reference_videos` / `reference_audios` | Optional Ref2VA references, up to 3 each, used in every segment: `<Video N>` and `<Audio N>`, such as a voice. A reference video's soundtrack takes the next `<Audio N>` before `reference_audios`. Other frame rates are resampled to 24 fps. |
 | `first_frame` | Optional opening image for the first segment. |
 | `context_latent` / `context_video` | Optional: continue an earlier video. See [Continue a video](#continue-a-video). |
 | `VIDEO` | The finished video. |
@@ -90,6 +91,7 @@ Connect **one** of `context_latent` or `context_video`. The new video starts whe
 1. Add **H3 Long Video Load Latent** and connect `latent` to Long Video's `context_latent`.
 2. Click **Preview and choose…**: pick a saved video, play it or drag the timeline, and click **Continue from …**. The node then shows the frame it continues from.
 3. Set `width`/`height` to the saved video's size.
+4. Join Load Latent's `video` (the saved video up to the continuation point) and Long Video's `VIDEO` with **Concatenate Video**.
 
 By default it continues the end of the latest saved video. Points sit on H3's 17-frame latent grid, about every 0.71 s; the picker snaps to the nearest one, and **Previous / Next point** step through them. Another Long Video's `latent` output also works for `context_latent`.
 
@@ -127,6 +129,7 @@ Segment boundaries:
 
 - Between lines that follow each other directly, a segment may end up to 0.67 s before the earlier line's stated end.
 - A line longer than a segment is split at its punctuation, with time in proportion to the text.
+- A line timed only by its shot ends once spoken (about 4 Chinese characters or 2.5 words a second) instead of filling the shot, which H3 fills by repeating the line. Lines with their own time range, such as `Narrator (6–15 s):`, and sung lines keep their range.
 - When no cut point is close enough, the segment becomes longer than `segment_seconds`, and the console warns because it needs more VRAM.
 
 | Situation | Does Long Video call the API? |

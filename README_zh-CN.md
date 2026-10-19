@@ -46,6 +46,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 | `prompt`、`total_seconds` | 整片剧情和总时长。 |
 | `prompt_api` | 把提示词拆成各段提示词。多段时必须连接。 |
 | `reference_images` | 可选参考图，按 `<Picture N>` 顺序作用于所有段。有参考图时用 Ref2VA 模型，否则用兼容的 FL2VA/T2VA 模型。 |
+| `reference_videos` / `reference_audios` | 可选 Ref2VA 参考，各最多 3 个，作用于所有段：`<Video N>` 和 `<Audio N>`（如音色）。参考视频自带的声音先占用下一个 `<Audio N>`，再轮到 `reference_audios`。其他帧率会重采样为 24 fps。 |
 | `first_frame` | 可选首帧，只用于第一段开场。 |
 | `context_latent` / `context_video` | 可选，接续之前的视频，见[接续视频](#接续视频)。 |
 | `VIDEO` | 生成的视频。 |
@@ -90,6 +91,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 1. 添加 **H3 Long Video Load Latent**，`latent` 接到 Long Video 的 `context_latent`。
 2. 点 **预览并选择接续位置…**：选择保存的视频，播放或拖动时间轴，点 **从 … 接续**。节点上会显示接续点那一帧。
 3. `width`/`height` 设为保存视频的尺寸。
+4. 用 **Concatenate Video** 把 Load Latent 的 `video`（保存的视频截到接续点）和 Long Video 的 `VIDEO` 拼起来。
 
 默认接续最新保存视频的结尾。接续点位于 H3 的 17 帧 latent 网格上，约每 0.71 秒一个；选择时自动吸附到最近的一个，也可用 **上一个 / 下一个续接点** 逐个切换。另一个 Long Video 的 `latent` 输出也可以接到 `context_latent`。
 
@@ -126,6 +128,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 分段规则：
 
 - 两句对白紧挨着时，可以在前一句标注的结束时间之前最多 0.67 秒处分段。
+- 只有所在镜头时间、没写自己时间的台词，按说完所需时间结束（约每秒 4 个汉字或 2.5 个英文词），不再占满整个镜头，否则 H3 会重复这句台词来填满。写了自己时间的台词（如 `旁白（6–15 秒）：`）和歌词保持原时间。
 - 比一段还长的对白按标点拆开，时间按字数分配。
 - 附近找不到切点时，该段会长于 `segment_seconds`，控制台会提醒这一段需要更多显存。
 

@@ -104,7 +104,7 @@
     }
   },
   "MiniMaxH3LongVideo": {
-    "description": "生成多段 H3 短片，延续其运动和音频，输出为一个视频。将 VIDEO 接到 Save Video。需要 ComfyUI 原生的 Concatenate Video 支持。无参考图时使用 FL2VA/T2VA 模型，有参考图时使用 Ref2VA 模型。",
+    "description": "生成多段 H3 短片，延续其运动和音频，输出为一个视频。将 VIDEO 接到 Save Video。需要 ComfyUI 原生的 Concatenate Video 支持。无参考时使用 FL2VA/T2VA 模型，有参考图、参考视频或参考音频时使用 Ref2VA 模型。",
     "inputs": {
       "prompt": {
         "tooltip": "为整个视频写一份完整的 H3 提示词，需要时使用最终视频的时间戳。prompt_api 会把它适配到各采样段。"
@@ -142,6 +142,12 @@
       "save_latents": {
         "name": "⚠ 保存 latent",
         "tooltip": "⚠ 把每段的 latent、MP4 和 manifest.json 保存到 output/h3_long_video/<运行>。这些文件不会自动删除，每次运行都会占用磁盘空间，请自行删除旧的运行。用 H3 Long Video Load Latent 加载它们来接续视频。"
+      },
+      "reference_videos": {
+        "tooltip": "Ref2VA 模型的参考视频：<Video 1>、<Video 2> 等。2-15 秒效果最好，超出第一段长度的帧会被丢弃。视频自带的声音占用下一个 <Audio N>，编号排在 reference_audios 之前。参考在整条链中始终生效。"
+      },
+      "reference_audios": {
+        "tooltip": "Ref2VA 模型的参考音频，例如音色：<Audio N>，编号排在参考视频的声音之后。参考在整条链中始终生效。"
       }
     },
     "outputs": {
@@ -208,7 +214,7 @@
   },
   "MiniMaxH3LongVideoLoadLatent": {
     "display_name": "H3 Long Video Load Latent",
-    "description": "加载 H3 Long Video（开启 save_latents）保存的分段 latent，接到 Long Video 的 context_latent 以接续该视频。输出只用于 context_latent，不能接 VAE 解码。",
+    "description": "加载 H3 Long Video（开启 save_latents）保存的分段 latent，接到 Long Video 的 context_latent 以接续该视频。latent 只用于 context_latent，不能接 VAE 解码。video 是保存的视频截到接续点的部分，用 Concatenate Video 与 Long Video 的 VIDEO 拼接。",
     "inputs": {
       "run": {
         "tooltip": "output/h3_long_video 下的运行文件夹，最新的在前。latest 在排队时总是选最新的运行。由“预览并选择接续位置…”设置。"
@@ -218,6 +224,12 @@
       },
       "frames": {
         "tooltip": "把该段截到前多少个采样帧，从那里接续；0 = 整段。只有 H3 17 帧网格上的点能精确接续，用“预览并选择接续位置…”选择。"
+      }
+    },
+    "outputs": {
+      "2": {
+        "name": "video",
+        "tooltip": "该运行保存的视频，从开头截到接续点。用 Concatenate Video 与 Long Video 的 VIDEO 拼接。如果该运行本身是接续别的视频生成的，不包含那段视频。"
       }
     }
   }
