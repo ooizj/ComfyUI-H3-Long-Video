@@ -6,7 +6,7 @@ Generate MiniMax H3 videos of any length from one prompt and a total duration. B
 
 - **One prompt, any length**: the video is sampled in segments that continue each other's picture and sound, then joined at 24 fps.
 - **Continue any video**: from a saved latent at any point (exact, no re-encoding) or from a video file.
-- **Prompt editors**: H3 Image & Prompt with backups, H3 Ref Prompt Builder for the six Ref2VA sections, and Qwen Image 2.1 Prompt Builder for character sheets, scene cards and keyframes made before the video.
+- **Prompt editors**: H3 Image & Prompt with backups, H3 Ref Prompt Builder for the six Ref2VA sections, Qwen Image 2.1 Prompt Builder for character sheets, scene cards and keyframes made before the video, and Qwen Image 2.1 Edit Prompt Builder for edit instructions.
 - **Cloud or local LLM** splits the story into segment prompts with the right timing.
 
 ## Install

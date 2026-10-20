@@ -21,6 +21,14 @@ layout. Each entry below says which of the two it works with.
   official Qwen Image 2.1 workflow. For a bust or waist-up shot, leave
   trousers and shoes out of the description, or the image comes out
   full-length.
+- New **Qwen Image 2.1 Edit Prompt Builder** node: pick an edit (replace
+  background, change pose, view, expression or lighting, outfit from a
+  second image, place into a second image's scene, add or remove an object,
+  change text, character sheet from a photo, remove background) and write
+  one line of what to change. It writes the instruction the way the
+  official edit workflow expects: the operation first, one "keep the rest"
+  clause, and `<image1>`/`<image2>` only when two images are used. Connect
+  its prompt to the official Qwen Image 2.1 image edit workflow.
 
 ## 0.11.1 - 2026-10-20
 

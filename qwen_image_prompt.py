@@ -1,9 +1,9 @@
-"""Qwen Image 2.1 Prompt Builder node and its editor routes.
+"""Qwen Image 2.1 Prompt Builder and Edit Prompt Builder nodes and their editor routes.
 
 Assembles Qwen Image 2.1 prompts from presets for MiniMax H3 video pre-production assets (character
-4-view sheets, 3D character cards, environment-only scene cards, first/last keyframes, <image1>
-reference edits, product anchors, co-op game menus, RGBA cutouts). For a short brief, turn on
-refine_prompt in the official Qwen Image 2.1 workflow to expand the result with its prompt enhancer.
+4-view sheets, 3D character cards, environment-only scene cards, product anchors, co-op game menus,
+RGBA cutouts), and edit instructions for the Qwen Image 2.1 image edit workflow. For a short brief,
+turn on refine_prompt in the official workflow.
 """
 
 import re
@@ -196,15 +196,6 @@ ASSET_TYPES = {
             "harsh shadows, extra characters, deformed hands, unreadable garbled text"
         ),
     },
-    "ref_image_edit": {
-        "label": "🖼️ 参考图一致性保留/改写 (Reference Keep/Edit · 锁脸锁装局部修改或换景)",
-        "default_medium": "auto_by_asset",
-        "default_lighting": "soft_window_left",
-        "negative": (
-            "changed face identity, altered hairstyle, wrong outfit colors, duplicate person, "
-            "cropped top of head, deformed hands, low resolution"
-        ),
-    },
     "product_anchor": {
         "label": "💎 极简商业产品锚点图 (Minimalist Product Anchor · 主视觉/微距材质/英文标题)",
         "default_medium": "macro_closeup",
@@ -233,8 +224,8 @@ ASSET_TYPES = {
             "cropped edges, heavy drop shadow on wall, blurry silhouette"
         ),
     },
-
 }
+
 
 def _clean_sentence(text):
     s = (text or "").strip()
@@ -276,63 +267,84 @@ def build_direct_prompt(
         rules.append("All panels depict the exact same single character with identical facial structure, hairstyle, and outfit, with no border lines and no extra figures.")
         rules.append("Every panel keeps the entire head, hair, headwear, and shoes completely inside the top and bottom edges of the frame with clear margin above the crown and below the soles.")
 
-    if asset_type == "ref_image_edit":
-        parts = []
-        if "<image" not in subj_clean:
-            parts.append(f"Using <image1> as the strict identity and appearance reference, {subj_clean}, {angle_clause}.")
-        else:
-            parts.append(f"{subj_clean}, {angle_clause}.")
-        parts.append(framing_sentence)
-        parts.append(lighting_sentence)
-        parts.append(
-            "Keep the character's facial identity, hairstyle, accessories, outfit design, and rendering medium from <image1> strictly unchanged across all untargeted regions."
+    opening_bg = "set against a clean, well-structured environment"
+    if asset_type == "character_4view":
+        opening_bg = (
+            "set on a plain off-white background (#F5F4F0) arranged as four equal-height side-by-side vertical panels with no dividing border lines"
         )
-        paragraph = " ".join(p.strip() for p in parts if p.strip())
-    else:
-        opening_bg = "set against a clean, well-structured environment"
-        if asset_type == "character_4view":
-            opening_bg = (
-                "set on a plain off-white background (#F5F4F0) arranged as four equal-height side-by-side vertical panels with no dividing border lines"
-            )
-        elif asset_type == "character_3view_card":
-            opening_bg = (
-                "set on a solid neutral medium-grey studio background (#7A7A7A) combining a left close-up bust portrait and three full-body turnaround views on the right"
-            )
-        elif asset_type == "scene_empty_card":
-            opening_bg = "depicting an uninhabited environment with clear foreground, midground, and background spatial depth"
-        elif asset_type == "rgba_cutout_asset":
-            opening_bg = "isolated cleanly in the centre of the frame with crisp outer edges"
-
-        opening = f"The image is a {orientation(width, height)}{style_adj} {medium_noun} of {subj_clean}, {opening_bg}, {angle_clause}."
-
-        body_sentences = [framing_sentence]
-        if asset_type == "character_4view":
-            body_sentences.append(
-                "On the far left panel is a large front head-and-shoulders close-up portrait from the chest to above the top of the hair; "
-                "the second panel shows a full-body standing front view; the third panel shows a full-body standing 90-degree side profile view facing right; "
-                "and the fourth panel on the far right shows a full-body standing back view, with panels two, three, and four standing on the exact same horizontal baseline at identical head-to-foot scale."
-            )
-            body_sentences.append("No text, labels, letters, or dividing grid lines appear anywhere in the frame.")
-        elif asset_type == "scene_empty_card":
-            body_sentences.append(
-                "In the foreground along the left and right edges, architectural framing elements establish depth; "
-                "across the centre midground, an open, uncluttered floor and furniture arrangement provides a clean staging area; "
-                "and across the background, walls, windows, and environmental details complete the spatial layout."
-            )
-
-        body_sentences.append(f"Throughout the frame, surfaces display {style_surface}.")
-
-        body_sentences.extend(rules)
-
-        closing_sentence = (
-            f"The overall composition is balanced and spatially coherent, combining {style_adj} fidelity with clear foreground-to-background separation."
+    elif asset_type == "character_3view_card":
+        opening_bg = (
+            "set on a solid neutral medium-grey studio background (#7A7A7A) combining a left close-up bust portrait and three full-body turnaround views on the right"
         )
-        paragraph = " ".join(p for p in [opening, *body_sentences, lighting_sentence, closing_sentence] if p)
+    elif asset_type == "scene_empty_card":
+        opening_bg = "depicting an uninhabited environment with clear foreground, midground, and background spatial depth"
+    elif asset_type == "rgba_cutout_asset":
+        opening_bg = "isolated cleanly in the centre of the frame with crisp outer edges"
+
+    opening = f"The image is a {orientation(width, height)}{style_adj} {medium_noun} of {subj_clean}, {opening_bg}, {angle_clause}."
+
+    body_sentences = [framing_sentence]
+    if asset_type == "character_4view":
+        body_sentences.append(
+            "On the far left panel is a large front head-and-shoulders close-up portrait from the chest to above the top of the hair; "
+            "the second panel shows a full-body standing front view; the third panel shows a full-body standing 90-degree side profile view facing right; "
+            "and the fourth panel on the far right shows a full-body standing back view, with panels two, three, and four standing on the exact same horizontal baseline at identical head-to-foot scale."
+        )
+        body_sentences.append("No text, labels, letters, or dividing grid lines appear anywhere in the frame.")
+    elif asset_type == "scene_empty_card":
+        body_sentences.append(
+            "In the foreground along the left and right edges, architectural framing elements establish depth; "
+            "across the centre midground, an open, uncluttered floor and furniture arrangement provides a clean staging area; "
+            "and across the background, walls, windows, and environmental details complete the spatial layout."
+        )
+
+    body_sentences.append(f"Throughout the frame, surfaces display {style_surface}.")
+
+    body_sentences.extend(rules)
+
+    closing_sentence = (
+        f"The overall composition is balanced and spatially coherent, combining {style_adj} fidelity with clear foreground-to-background separation."
+    )
+    paragraph = " ".join(p for p in [opening, *body_sentences, lighting_sentence, closing_sentence] if p)
 
     paragraph = re.sub(r"\s+", " ", paragraph).strip()
     if asset_type == "rgba_cutout_asset":
         paragraph = f"This is an RGBA format image with transparency. {paragraph} The image has an alpha channel and a transparent background."
     return paragraph
+
+
+# Edit instructions follow the official Qwen Image 2.1 edit guidance: lead with the operation, write in the
+# user's language, keep everything else with one "保持…不变" clause, and tag images only when there are two or more.
+# Each template was checked on the edit model with refine_prompt off. Values: (label, template, example, images).
+EDIT_OPERATIONS = {
+    "background": ("🏞️ 换背景 (Replace Background)", "将图片中的背景替换为{x}，保持人物的长相、发型、服装和姿势不变。",
+                   "阳光明媚的海边沙滩，远处是海浪和蓝天", 1),
+    "pose": ("🧍 改动作 (Change Pose)", "将图片中人物的动作改为{x}，保持人物的长相、发型、服装和背景不变。",
+             "坐在门口的台阶上低头看手机", 1),
+    "view": ("🔄 换角度/转身 (Change View)", "将图片中的人物改为{x}，保持人物的发型、服装和背景不变。",
+             "背对镜头的背面视角", 1),
+    "expression": ("😄 改表情 (Change Expression)", "将图片中人物的表情改为{x}，保持人物的长相、发型、服装、姿势和背景不变。",
+                   "开怀大笑", 1),
+    "relight": ("🌙 改光线/时间 (Relight)", "将图片的光线和时间改为{x}，保持人物和场景中的物体不变。",
+                "夜晚，室内透出暖黄色灯光照在人物身上", 1),
+    "outfit": ("👕 换装 (Outfit from image 2)", "让<image1>中的人物穿上<image2>中的{x}，保持<image1>中人物的长相、发型、姿势、其余服装和背景不变。",
+               "红色皮夹克，替换掉原来的外套", 2),
+    "place": ("🛋️ 放进场景 (Place into image 2)", "将<image1>中的人物放入<image2>的场景中，{x}，保持<image1>中人物的长相、发型和服装不变，保持<image2>中场景的布局、家具和光线不变。",
+              "让她坐在沙发上看向窗外", 2),
+    "add": ("➕ 加物体 (Add Object)", "在图片中{x}，保持画面其他内容不变。", "让人物右手拿着一杯外带咖啡", 1),
+    "remove": ("➖ 删物体 (Remove Object)", "删除图片中的{x}，用周围的背景自然补全，保持画面其他内容不变。", "门口左侧的白色盆栽", 1),
+    "text": ("🔤 改文字 (Edit Text)", "将图片中的文字{x}，保持字体样式、位置和画面其他内容不变。", '"LUMEN"改为"AURORA"', 1),
+    "sheet": ("👤 生成角色设定卡 (Character Sheet)", "根据图片中的人物生成角色设定卡：浅灰白色纯色背景，画面从左到右分为四栏，最左边一栏是人物面部的大特写，后面三栏依次是全身正面、全身侧面、全身背面，四栏是同一个人物，保持人物的长相、发型和服装不变，画面中没有文字和分隔线。",
+              "", 1),
+    "cutout": ("🔲 抠图透明背景 (Remove Background)", "Remove the background, and output a PNG image", "", 1),
+    "custom": ("✍️ 自定义 (Custom)", "{x}", "把图片中的天空改成晚霞，保持其他内容不变", 1),
+}
+
+
+def build_edit_prompt(operation, instruction):
+    """Fill the operation's template with the user's instruction, falling back to the template's example."""
+    _, template, example, _ = EDIT_OPERATIONS.get(operation, EDIT_OPERATIONS["custom"])
+    return template.format(x=_clean_sentence(instruction) or example)
 
 
 def register_qwen21_routes():
@@ -356,6 +368,8 @@ def register_qwen21_routes():
             "medium_shots": {k: {"label": v[0]} for k, v in MEDIUM_SHOT_PRESETS.items()},
             "camera_angles": {k: {"label": v[0]} for k, v in CAMERA_ANGLE_PRESETS.items()},
             "lighting_presets": {k: {"label": v[0]} for k, v in LIGHTING_PRESETS.items()},
+            "edit_operations": {k: {"label": v[0], "example": v[2], "images": v[3], "uses_text": "{x}" in v[1]}
+                                for k, v in EDIT_OPERATIONS.items()},
         })
 
     @server.routes.post("/h3_motion_context/qwen21_assemble")
@@ -379,6 +393,12 @@ def register_qwen21_routes():
         )
         return web.json_response({"prompt": prompt, "negative_prompt": ASSET_TYPES[asset_type]["negative"]})
 
+    @server.routes.post("/h3_motion_context/qwen21_edit_assemble")
+    @require_same_origin
+    async def post_qwen21_edit_assemble(request):
+        data = await request.json()
+        return web.json_response({"prompt": build_edit_prompt(data.get("operation", "custom"), data.get("instruction", ""))})
+
     register_qwen21_routes._done = True
 
 
@@ -392,7 +412,7 @@ class QwenImage21VideoPrompt(cio.ComfyNode):
             description=(
                 "Assemble Qwen Image 2.1 prompts for MiniMax H3 video pre-production "
                 "(character 4-view sheets, 3D character cards, empty scene cards, "
-                "<image1> reference edits, product anchors, RGBA cutouts). For a short brief, enable "
+                "product anchors, RGBA cutouts). For a short brief, enable "
                 "refine_prompt in the Qwen Image 2.1 workflow."
             ),
             inputs=[
@@ -441,5 +461,37 @@ class QwenImage21VideoPrompt(cio.ComfyNode):
         return cio.NodeOutput(prompt, ASSET_TYPES[asset_type]["negative"], width, height)
 
 
-NODE_CLASS_MAPPINGS = {"QwenImage21VideoPrompt": QwenImage21VideoPrompt}
-NODE_DISPLAY_NAME_MAPPINGS = {"QwenImage21VideoPrompt": "Qwen Image 2.1 Prompt Builder"}
+class QwenImage21EditPrompt(cio.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return cio.Schema(
+            node_id="QwenImage21EditPrompt",
+            display_name="Qwen Image 2.1 Edit Prompt Builder",
+            category="video/minimax",
+            description=(
+                "Write a Qwen Image 2.1 edit instruction from an operation and one line of what to change. "
+                "Connect the prompt to the official image edit workflow; image_1 is the image being edited, "
+                "image_2 supplies the outfit or scene for the two-image operations."
+            ),
+            inputs=[
+                cio.Combo.Input("operation", options=list(EDIT_OPERATIONS.keys()), default="background",
+                                tooltip="编辑操作。换装和放进场景需要第 2 张图（image_2）。"),
+                cio.String.Input("instruction", default="", multiline=True, placeholder="改成什么，例如：阳光明媚的海边沙滩"),
+                cio.Boolean.Input("manual_prompt", default=False, tooltip="开启时直接输出 final_prompt（在预览框手动修改后自动开启）。"),
+                cio.String.Input("final_prompt", default="", multiline=True, placeholder="编辑指令预览/手动微调框"),
+            ],
+            outputs=[cio.String.Output(display_name="prompt")],
+        )
+
+    @classmethod
+    def execute(cls, operation, instruction, manual_prompt, final_prompt):
+        if manual_prompt and final_prompt.strip():
+            return cio.NodeOutput(final_prompt.strip())
+        return cio.NodeOutput(build_edit_prompt(operation, instruction))
+
+
+NODE_CLASS_MAPPINGS = {"QwenImage21VideoPrompt": QwenImage21VideoPrompt, "QwenImage21EditPrompt": QwenImage21EditPrompt}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "QwenImage21VideoPrompt": "Qwen Image 2.1 Prompt Builder",
+    "QwenImage21EditPrompt": "Qwen Image 2.1 Edit Prompt Builder",
+}
