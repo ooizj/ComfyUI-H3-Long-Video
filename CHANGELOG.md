@@ -20,7 +20,9 @@ layout. Each entry below says which of the two it works with.
   No LLM is needed; for a short description, turn on `refine_prompt` in the
   official Qwen Image 2.1 workflow. For a bust or waist-up shot, leave
   trousers and shoes out of the description, or the image comes out
-  full-length.
+  full-length. An empty scene card never mentions a figure: person-only
+  shot sizes and angles are hidden for it, and the editor shows scene
+  examples for shot size, angle and lighting.
 - New **Qwen Image 2.1 Edit Prompt Builder** node: pick an edit (replace
   background, change pose, view, expression or lighting, outfit from a
   second image, place into a second image's scene, add or remove an object,

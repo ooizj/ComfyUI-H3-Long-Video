@@ -125,6 +125,16 @@ CAMERA_ANGLE_PRESETS = {
     "telephoto_dof": ("长焦浅景深 (Telephoto Shallow DOF)", "captured with a medium-telephoto lens with creamy shallow depth of field and soft background bokeh"),
 }
 
+# An environment-only scene card must not mention a figure anywhere: the model draws what the prompt names.
+# These replace the person-centred wording, and the person-only options are not offered for it.
+SCENE_WORDING = {
+    "wide_establishing": "The framing is a wide establishing shot: the surroundings fill the whole frame.",
+    "low_angle": "captured from a low camera near the ground looking upward, so the architecture and tall features rise above the viewer",
+    "worms_eye": "captured from a worm's-eye view with the camera on the ground looking steeply upward, with strong upward perspective",
+    "birds_eye": "captured from a high aerial bird's-eye view far above, looking down at a steep angle over the whole scene",
+}
+PERSON_ONLY = ("bust_headroom", "medium_waist", "full_body", "side_profile", "from_behind")
+
 LIGHTING_PRESETS = {
     "soft_window_left": (
         "左侧柔和自然窗光 (Soft Diffused Window Light)",
@@ -248,11 +258,19 @@ def build_direct_prompt(
     _, style_adj, style_surface = STYLE_PRESETS.get(style_preset, STYLE_PRESETS["realistic_photo"])
     asset_info = ASSET_TYPES.get(asset_type, ASSET_TYPES["none"])
 
+    no_people = asset_type == "scene_empty_card"
+    if no_people:
+        # A saved workflow can still hold a person-only choice from before the asset type was switched.
+        medium_shot = "auto_by_asset" if medium_shot in PERSON_ONLY else medium_shot
+        camera_angle = "eye_level" if camera_angle in PERSON_ONLY else camera_angle
     medium_key = asset_info["default_medium"] if medium_shot == "auto_by_asset" else medium_shot
     _, medium_noun, framing_sentence = MEDIUM_SHOT_PRESETS.get(medium_key, MEDIUM_SHOT_PRESETS["auto_by_asset"])
     if medium_key == "auto_by_asset":
         medium_noun = asset_info.get("noun", medium_noun)
     _, angle_clause = CAMERA_ANGLE_PRESETS.get(camera_angle, CAMERA_ANGLE_PRESETS["eye_level"])
+    if no_people:
+        framing_sentence = SCENE_WORDING.get(medium_key, framing_sentence)
+        angle_clause = SCENE_WORDING.get(camera_angle, angle_clause)
     _, lighting_sentence = LIGHTING_PRESETS.get(
         lighting_preset, LIGHTING_PRESETS[asset_info.get("default_lighting", "soft_window_left")]
     )
@@ -361,9 +379,11 @@ def register_qwen21_routes():
                     "label": v["label"],
                     "default_medium": v["default_medium"],
                     "default_lighting": v["default_lighting"],
+                    "no_people": k == "scene_empty_card",
                 }
                 for k, v in ASSET_TYPES.items()
             },
+            "person_only": PERSON_ONLY,
             "style_presets": {k: {"label": v[0]} for k, v in STYLE_PRESETS.items()},
             "medium_shots": {k: {"label": v[0]} for k, v in MEDIUM_SHOT_PRESETS.items()},
             "camera_angles": {k: {"label": v[0]} for k, v in CAMERA_ANGLE_PRESETS.items()},

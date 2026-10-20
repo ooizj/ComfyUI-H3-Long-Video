@@ -171,7 +171,7 @@ function createPickers(root) {
         text.textContent = shortLabel(label);
         trigger.title = label;
         thumb.style.visibility = "";
-        thumb.src = exampleUrl(group, v);
+        thumb.src = exampleUrl(picker.group, v);
       },
       setOptions(options) {
         picker.options = options || {};
@@ -357,6 +357,21 @@ function installQwen21Builder(node) {
     mediumHint.hidden = !["bust_headroom", "medium_waist"].includes(selMedium.value);
   }
 
+  // A scene card hides the person-only shots and angles and shows scene examples for the framing options.
+  function applyAssetScope() {
+    const noPeople = Boolean(catalog.asset_types[selAsset.value]?.no_people);
+    const scoped = map => (noPeople ? Object.fromEntries(Object.entries(map).filter(([k]) => !catalog.person_only.includes(k))) : map);
+    for (const [picker, group, map, wName] of [
+      [selMedium, "medium_shot", catalog.medium_shots, "medium_shot"],
+      [selAngle, "camera_angle", catalog.camera_angles, "camera_angle"],
+      [selLight, "lighting_preset", catalog.lighting_presets, "lighting_preset"],
+    ]) {
+      picker.group = noPeople ? `${group}_scene` : group;
+      picker.setOptions(scoped(map));
+      if (widgets[wName]) widgets[wName].value = picker.value;
+    }
+  }
+
   // width/height are linked inputs; read the upstream node so the preview uses the same orientation word as the run.
   function linkedValue(name) {
     const slot = node.findInputSlot(name);
@@ -409,6 +424,7 @@ function installQwen21Builder(node) {
       if (widgets.medium_shot) widgets.medium_shot.value = preset.default_medium;
       selLight.value = preset.default_lighting;
       if (widgets.lighting_preset) widgets.lighting_preset.value = preset.default_lighting;
+      applyAssetScope();
     }
     updateHints();
     onOptionChange();
@@ -442,6 +458,7 @@ function installQwen21Builder(node) {
     if (widgets.medium_shot?.value) selMedium.value = widgets.medium_shot.value;
     if (widgets.camera_angle?.value) selAngle.value = widgets.camera_angle.value;
     if (widgets.lighting_preset?.value) selLight.value = widgets.lighting_preset.value;
+    applyAssetScope();
     updateHints();
     txtSubject.value = widgets.subject?.value ?? "";
     preview.restore();
