@@ -32,7 +32,13 @@ Return ONLY JSON: {"speech": [
   {"kind": "cut", "start_seconds": 6, "end_seconds": 6, "text": "cut to a close-up of the cup"}
 ]}.
 speech lists ONLY speech, narration or singing with explicit event times (not a total
-duration, age or ID), once per occurrence, in source order. Copy its exact <d>
+duration, age or ID), once per occurrence, in source order. Words are speech only
+when a subject utters them aloud. A note on how long or how fast the video or an
+action runs, such as 'over 1 minute', 'slowly over 60 seconds' or 'the whole
+sequence lasts half a minute', is never speech, even though it names a time; a
+source with no spoken words gives an empty speech list. When the source quotes its
+lines in <d>, every speech entry contains a <d> block; list nothing else as speech.
+Copy its exact <d>
 block(s), or exact spoken passage if untagged, into text. Use the line's own time
 range, else the range of the shot it is in; do not estimate word timings. A time
 range heading several shots is a section, not one shot: divide it among those

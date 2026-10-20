@@ -1,11 +1,14 @@
 """Keep speech intact on H3's frame grid and check adapted prompts."""
 
 from collections import Counter
+import logging
 import math
 import re
 
 from comfy_extras.nodes_minimax_h3 import align_frame_count
 
+
+_LOG = logging.getLogger("h3_motion_context")
 
 _DIALOGUE = re.compile(r"<d>(.*?)</d>", re.DOTALL)
 _LANGUAGE = re.compile(r"\s*(\[[^\]]*\]\s*)?")
@@ -42,31 +45,67 @@ def valid_seconds(start, end):
             and math.isfinite(start) and math.isfinite(end) and 0 <= start <= end)
 
 
+def speech_summary(event):
+    """The offending entry in a short form, so its text can be found in the prompt."""
+    text = event.get("text") if isinstance(event, dict) else event
+    if not isinstance(text, str):
+        text = repr(text)
+    elif len(text) > 80:
+        text = text[:77] + "..."
+    start = event.get("start_seconds") if isinstance(event, dict) else None
+    end = event.get("end_seconds") if isinstance(event, dict) else None
+    return f"text={text!r} start={start!r} end={end!r}"
+
+
 def validate_timeline(timeline, source):
-    """Return (speech, events): timed speech copied from the source, and the other timed details."""
+    """Return (speech, events): timed speech copied from the source, and the other timed details.
+
+    A speech entry that is no line of the source, or carries no usable range, is dropped with a warning
+    instead of failing the run: a weaker model sometimes reads a pacing note such as 'over 1 minute' as
+    speech, and dropping it only loses a time range. A quoted <d> line still has to be intact and timed,
+    since segment boundaries are planned around it."""
     speech = timeline.get("speech") if isinstance(timeline, dict) else None
     if not isinstance(speech, list):
         raise RuntimeError("LLM must return a speech list.")
+    tagged = bool(_DIALOGUE.search(source))
+    kept = []
     for event in speech:
         if not isinstance(event, dict):
-            raise RuntimeError("LLM returned an invalid speech range.")
+            raise RuntimeError(f"LLM returned an invalid speech range: {speech_summary(event)}.")
         passage = event.get("text")
+        if tagged and not (isinstance(passage, str) and _DIALOGUE.search(passage)):
+            # This source quotes its lines in <d>, so an entry without one is prose read as speech. A source
+            # mixing <d> lines with untagged ones loses the untagged line's own range this way.
+            _LOG.warning("H3 Prompt: ignoring a speech entry that quotes no <d> dialogue: %s", speech_summary(event))
+            continue
         block = _DIALOGUE.fullmatch(passage.strip()) if isinstance(passage, str) and passage not in source else None
         if block:
-            # Some LLMs wrap an untagged line in a <d> block like the example; keep the line as the source has it.
+            # Some LLMs wrap an untagged line in a <d> block like the example, or drop a <d> line's language tag;
+            # keep the line as the source has it.
             passage = event["text"] = _LANGUAGE.sub("", block.group(1), count=1).strip()
         if not isinstance(passage, str) or not passage.strip() or passage not in source:
-            raise RuntimeError("LLM speech text was changed or is missing from the original prompt.")
+            raise RuntimeError("LLM speech text was changed or is missing from the original prompt: "
+                               f"{speech_summary(event)}.")
         start, end = event.get("start_seconds"), event.get("end_seconds")
         if not valid_seconds(start, end) or end == start:
-            raise RuntimeError("LLM returned invalid speech start/end seconds.")
+            if tagged:
+                raise RuntimeError(f"LLM returned invalid speech start/end seconds: {speech_summary(event)}.")
+            # The timeline prompt asks for point-only speech to be omitted, since it has no known duration.
+            _LOG.warning("H3 Prompt: ignoring a speech entry without a usable time range: %s", speech_summary(event))
+            continue
+        kept.append(event)
+    speech = kept
     # Plain JSON mode cannot force the events list; without it clips simply get no event times.
     events = timeline.get("events", [])
-    if not isinstance(events, list) or any(
-            not isinstance(e, dict) or e.get("kind") not in EVENT_KINDS
-            or not isinstance(e.get("text"), str) or not e["text"].strip()
-            or not valid_seconds(e.get("start_seconds"), e.get("end_seconds")) for e in events):
+    if not isinstance(events, list):
         raise RuntimeError("LLM returned an invalid timed event. Change variation and retry.")
+    for event in events:
+        if (not isinstance(event, dict) or event.get("kind") not in EVENT_KINDS
+                or not isinstance(event.get("text"), str) or not event["text"].strip()
+                or not valid_seconds(event.get("start_seconds"), event.get("end_seconds"))):
+            kind = event.get("kind") if isinstance(event, dict) else None
+            raise RuntimeError(f"LLM returned an invalid timed event: kind={kind!r} {speech_summary(event)}. "
+                               "Change variation and retry.")
     return speech, events
 
 

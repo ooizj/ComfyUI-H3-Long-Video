@@ -284,7 +284,7 @@ def test_prompt_api():
             try:
                 split(full_prompt, schedule, "Ref2VA", REFS, **settings)
             except RuntimeError as error:
-                assert "invalid timed event" in str(error)
+                assert "invalid timed event" in str(error) and "kind=" in str(error)
             else:
                 raise AssertionError("Invalid timed events must fail")
         # A line timed only by its shot reaches the clip prompts ending once spoken.
@@ -334,7 +334,7 @@ def test_prompt_api():
         assert post.call_count == 2
         assert all(not clip["speech"] for clip in json.loads(post.call_args.kwargs["json"]["messages"][1]["content"])["clips"])
         for bad in [
-            {"speech": [dict(speech[0], text="An invented line.")]},
+            {"speech": [dict(speech[0], text="<d>[Chinese] 再见！</d>")]},
             {"speech": [dict(speech[0], end_seconds=-1)]},
             {"speech": [dict(speech[0], start_seconds=float("nan"))]},
             {"speech": "none"},
@@ -456,6 +456,28 @@ def test_dialogue_boundaries():
     # An untagged line the LLM wrapped in a <d> block is read back as the source has it.
     wrapped = {"speech": [{"start_seconds": 0, "end_seconds": 3, "from_shot": True, "text": "<d>[Chinese] 慢点吃，小心烫哦。</d>"}]}
     assert timing.validate_timeline(wrapped, '她说："慢点吃，小心烫哦。"')[0][0]["text"] == "慢点吃，小心烫哦。"
+
+    # A pacing note read as speech is dropped instead of failing the run: 'over 1 minute' with equal
+    # start/end once stopped a 70 s video with no dialogue at all.
+    note = "The actions unfold slowly over 1 minute. 她说：<d>[Chinese] 走吧。</d>"
+    junk = {"start_seconds": 0, "end_seconds": 0, "from_shot": False, "text": "1 minute"}
+    line = {"start_seconds": 2, "end_seconds": 4, "from_shot": False, "text": "<d>[Chinese] 走吧。</d>"}
+    assert timing.validate_timeline({"speech": [junk, line]}, note)[0] == [line]
+    # A quoted line whose language tag the LLM dropped is still kept, with its range.
+    untagged = dict(line, text="<d>走吧。</d>")
+    assert timing.validate_timeline({"speech": [untagged]}, note)[0] == [dict(line, text="走吧。")]
+    # With no <d> in the source an untagged entry is kept, unless its range is unusable.
+    plain = "The actions unfold slowly over 1 minute."
+    assert timing.validate_timeline({"speech": [junk]}, plain)[0] == []
+    assert timing.validate_timeline({"speech": [dict(junk, end_seconds=60)]}, plain)[0][0]["text"] == "1 minute"
+    # A quoted line stays strict, and the error names the entry so it can be found in the prompt.
+    for bad in ({"end_seconds": 2}, {"start_seconds": "2 s"}, {"start_seconds": -1}):
+        try:
+            timing.validate_timeline({"speech": [line | bad]}, note)
+        except RuntimeError as error:
+            assert "invalid speech start/end seconds" in str(error) and "走吧" in str(error)
+        else:
+            raise AssertionError("A quoted line without a usable range must fail")
 
     # A line timed only by its shot ends once spoken instead of filling the shot, which H3 fills by repeating it.
     # Its own range, a sung line and a line without from_shot keep their range; a cap never lengthens a line.

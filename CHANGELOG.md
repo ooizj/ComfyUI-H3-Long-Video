@@ -8,6 +8,21 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## Unreleased
+
+- Prompt planning no longer stops with "LLM returned invalid speech
+  start/end seconds" when the LLM lists something that is not a spoken
+  line as speech. A pacing note such as "over 1 minute" read as a line,
+  and any entry without a usable time range, is now dropped with a console
+  warning; a quoted `<d>` line still has to be intact and timed, since
+  segment boundaries are planned around it. When the prompt quotes its
+  lines in `<d>`, entries without a `<d>` block are ignored.
+- The timeline instructions say that a note on how long or how fast
+  something runs is never speech, and that a prompt without spoken words
+  returns an empty speech list.
+- Timeline errors now name the offending entry's text and times, instead
+  of only saying that something was invalid.
+
 ## 0.11.0 - 2026-10-19
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
