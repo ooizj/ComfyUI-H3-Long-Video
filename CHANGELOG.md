@@ -8,7 +8,9 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
-## Unreleased
+## 0.11.1 - 2026-10-20
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
 
 - Prompt planning no longer stops with "LLM returned invalid speech
   start/end seconds" when the LLM lists something that is not a spoken
