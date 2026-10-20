@@ -57,6 +57,11 @@ from .prompt_backup import (
     NODE_DISPLAY_NAME_MAPPINGS as _BACKUP_NAMES,
     register_backup_routes,
 )
+from .qwen_image_prompt import (
+    NODE_CLASS_MAPPINGS as _QWEN_CLASSES,
+    NODE_DISPLAY_NAME_MAPPINGS as _QWEN_NAMES,
+    register_qwen21_routes,
+)
 
 NODE_CLASS_MAPPINGS.update(_PROBE_CLASSES)
 NODE_DISPLAY_NAME_MAPPINGS.update(_PROBE_NAMES)
@@ -70,10 +75,13 @@ NODE_CLASS_MAPPINGS.update(_BUILDER_CLASSES)
 NODE_DISPLAY_NAME_MAPPINGS.update(_BUILDER_NAMES)
 NODE_CLASS_MAPPINGS.update(_BACKUP_CLASSES)
 NODE_DISPLAY_NAME_MAPPINGS.update(_BACKUP_NAMES)
+NODE_CLASS_MAPPINGS.update(_QWEN_CLASSES)
+NODE_DISPLAY_NAME_MAPPINGS.update(_QWEN_NAMES)
 register_chain_routes()
 register_backup_routes()
 register_model_routes()
 register_segment_routes()
+register_qwen21_routes()
 
 logging.getLogger("h3_motion_context").info(
     "h3_motion_context: nodes registered. ComfyUI is not modified; the "

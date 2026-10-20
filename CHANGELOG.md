@@ -8,6 +8,20 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## Unreleased
+
+- New **Qwen Image 2.1 Prompt Builder** node (`video/minimax`): assembles
+  Qwen Image 2.1 prompts for H3 pre-production images (character sheets,
+  empty scene cards, reference edits, product anchors, game menus, RGBA
+  cutouts) from an asset type, style, shot size, camera angle and lighting.
+  The editor shows an example image for every option. Connect `width` and
+  `height` from Resolution Selector; the prompt names the frame wide,
+  vertical or square to match, and both values pass through to the outputs.
+  No LLM is needed; for a short description, turn on `refine_prompt` in the
+  official Qwen Image 2.1 workflow. For a bust or waist-up shot, leave
+  trousers and shoes out of the description, or the image comes out
+  full-length.
+
 ## 0.11.1 - 2026-10-20
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
