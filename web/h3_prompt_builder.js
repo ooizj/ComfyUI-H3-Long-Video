@@ -113,6 +113,7 @@ function install(node) {
     return btn;
   };
   const importer = element("details");
+  importer.ontoggle = () => { node.properties.h3_import_open = importer.open; changed(); };
   importer.append(local(element("summary", ""), "导入整段提示词", "Import a full prompt"));
   importer.append(local(element("div", "h3pb-note"), "完整 H3 提示词可按标题拆分；普通描述可结合所选参考图，用 AI 展开成六段。填入后可撤销。", "Split a full H3 prompt by its headings, or let AI expand a plain description into six fields using the selected references. Undo is available."));
   const importText = element("textarea");
@@ -472,6 +473,7 @@ function install(node) {
     logInput.checked = widgets.log_prompts.value;
     setLanguage(AI_LANGUAGES.includes(widgets.ai_language.value) ? widgets.ai_language.value : "English");
     importText.value = node.properties.h3_import_text || "";
+    importer.open = !!node.properties.h3_import_open;
     setFields(fields()); renderGallery(); refresh();
     syncWidth();
   }
