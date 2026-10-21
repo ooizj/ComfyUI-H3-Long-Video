@@ -12,8 +12,8 @@ layout. Each entry below says which of the two it works with.
 
 - New **Qwen Image 2.1 Prompt Builder** node (`video/minimax`): assembles
   Qwen Image 2.1 prompts for H3 pre-production images (character sheets,
-  empty scene cards, reference edits, product anchors, game menus, RGBA
-  cutouts) from an asset type, style, shot size, camera angle and lighting.
+  empty scene cards, product anchors, game menus, RGBA cutouts) from an
+  asset type, style, shot size, camera angle and lighting.
   The editor shows an example image for every option. Connect `width` and
   `height` from Resolution Selector; the prompt names the frame wide,
   vertical or square to match, and both values pass through to the outputs.
@@ -23,14 +23,6 @@ layout. Each entry below says which of the two it works with.
   full-length. An empty scene card never mentions a figure: person-only
   shot sizes and angles are hidden for it, and the editor shows scene
   examples for shot size, angle and lighting.
-- New **Qwen Image 2.1 Edit Prompt Builder** node: pick an edit (replace
-  background, change pose, view, expression or lighting, outfit from a
-  second image, place into a second image's scene, add or remove an object,
-  change text, character sheet from a photo, remove background) and write
-  one line of what to change. It writes the instruction the way the
-  official edit workflow expects: the operation first, one "keep the rest"
-  clause, and `<image1>`/`<image2>` only when two images are used. Connect
-  its prompt to the official Qwen Image 2.1 image edit workflow.
 
 ## 0.11.1 - 2026-10-20
 

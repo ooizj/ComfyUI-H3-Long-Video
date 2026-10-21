@@ -6,7 +6,7 @@
 
 - **一份提示词，任意时长**：分段采样，每段接续上一段的画面和声音，最后以 24 fps 拼接。
 - **接续任意视频**：从保存的 latent 的任意位置精确接续（不重新编码），或从视频文件接续。
-- **提示词编辑器**：带备份的 H3 Image & Prompt，编辑 Ref2VA 六段提示词的 H3 Ref Prompt Builder，为视频前期生成角色设定卡、场景卡和首尾帧的 Qwen Image 2.1 Prompt Builder，以及写图片编辑指令的 Qwen Image 2.1 Edit Prompt Builder。
+- **提示词编辑器**：带备份的 H3 Image & Prompt，编辑 Ref2VA 六段提示词的 H3 Ref Prompt Builder，以及为视频前期生成角色设定卡、场景卡和首尾帧的 Qwen Image 2.1 Prompt Builder。
 - **云端或本地大模型**把剧情拆成时间正确的各段提示词。
 
 ## 安装

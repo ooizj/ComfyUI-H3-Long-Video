@@ -1,9 +1,8 @@
-"""Qwen Image 2.1 Prompt Builder and Edit Prompt Builder nodes and their editor routes.
+"""Qwen Image 2.1 Prompt Builder node and its editor routes.
 
 Assembles Qwen Image 2.1 prompts from presets for MiniMax H3 video pre-production assets (character
 4-view sheets, 3D character cards, environment-only scene cards, product anchors, co-op game menus,
-RGBA cutouts), and edit instructions for the Qwen Image 2.1 image edit workflow. For a short brief,
-turn on refine_prompt in the official workflow.
+RGBA cutouts). For a short brief, turn on refine_prompt in the official workflow.
 """
 
 import re
@@ -331,40 +330,6 @@ def build_direct_prompt(
     return paragraph
 
 
-# Edit instructions follow the official Qwen Image 2.1 edit guidance: lead with the operation, write in the
-# user's language, keep everything else with one "保持…不变" clause, and tag images only when there are two or more.
-# Each template was checked on the edit model with refine_prompt off. Values: (label, template, example, images).
-EDIT_OPERATIONS = {
-    "background": ("🏞️ 换背景 (Replace Background)", "将图片中的背景替换为{x}，保持人物的长相、发型、服装和姿势不变。",
-                   "阳光明媚的海边沙滩，远处是海浪和蓝天", 1),
-    "pose": ("🧍 改动作 (Change Pose)", "将图片中人物的动作改为{x}，保持人物的长相、发型、服装和背景不变。",
-             "坐在门口的台阶上低头看手机", 1),
-    "view": ("🔄 换角度/转身 (Change View)", "将图片中的人物改为{x}，保持人物的发型、服装和背景不变。",
-             "背对镜头的背面视角", 1),
-    "expression": ("😄 改表情 (Change Expression)", "将图片中人物的表情改为{x}，保持人物的长相、发型、服装、姿势和背景不变。",
-                   "开怀大笑", 1),
-    "relight": ("🌙 改光线/时间 (Relight)", "将图片的光线和时间改为{x}，保持人物和场景中的物体不变。",
-                "夜晚，室内透出暖黄色灯光照在人物身上", 1),
-    "outfit": ("👕 换装 (Outfit from image 2)", "让<image1>中的人物穿上<image2>中的{x}，保持<image1>中人物的长相、发型、姿势、其余服装和背景不变。",
-               "红色皮夹克，替换掉原来的外套", 2),
-    "place": ("🛋️ 放进场景 (Place into image 2)", "将<image1>中的人物放入<image2>的场景中，{x}，保持<image1>中人物的长相、发型和服装不变，保持<image2>中场景的布局、家具和光线不变。",
-              "让她坐在沙发上看向窗外", 2),
-    "add": ("➕ 加物体 (Add Object)", "在图片中{x}，保持画面其他内容不变。", "让人物右手拿着一杯外带咖啡", 1),
-    "remove": ("➖ 删物体 (Remove Object)", "删除图片中的{x}，用周围的背景自然补全，保持画面其他内容不变。", "门口左侧的白色盆栽", 1),
-    "text": ("🔤 改文字 (Edit Text)", "将图片中的文字{x}，保持字体样式、位置和画面其他内容不变。", '"LUMEN"改为"AURORA"', 1),
-    "sheet": ("👤 生成角色设定卡 (Character Sheet)", "根据图片中的人物生成角色设定卡：浅灰白色纯色背景，画面从左到右分为四栏，最左边一栏是人物面部的大特写，后面三栏依次是全身正面、全身侧面、全身背面，四栏是同一个人物，保持人物的长相、发型和服装不变，画面中没有文字和分隔线。",
-              "", 1),
-    "cutout": ("🔲 抠图透明背景 (Remove Background)", "Remove the background, and output a PNG image", "", 1),
-    "custom": ("✍️ 自定义 (Custom)", "{x}", "把图片中的天空改成晚霞，保持其他内容不变", 1),
-}
-
-
-def build_edit_prompt(operation, instruction):
-    """Fill the operation's template with the user's instruction, falling back to the template's example."""
-    _, template, example, _ = EDIT_OPERATIONS.get(operation, EDIT_OPERATIONS["custom"])
-    return template.format(x=_clean_sentence(instruction) or example)
-
-
 def register_qwen21_routes():
     """Register local HTTP routes for the Qwen Image 2.1 Prompt Builder editor."""
     server = getattr(PromptServer, "instance", None)
@@ -388,8 +353,6 @@ def register_qwen21_routes():
             "medium_shots": {k: {"label": v[0]} for k, v in MEDIUM_SHOT_PRESETS.items()},
             "camera_angles": {k: {"label": v[0]} for k, v in CAMERA_ANGLE_PRESETS.items()},
             "lighting_presets": {k: {"label": v[0]} for k, v in LIGHTING_PRESETS.items()},
-            "edit_operations": {k: {"label": v[0], "example": v[2], "images": v[3], "uses_text": "{x}" in v[1]}
-                                for k, v in EDIT_OPERATIONS.items()},
         })
 
     @server.routes.post("/h3_motion_context/qwen21_assemble")
@@ -412,12 +375,6 @@ def register_qwen21_routes():
             data.get("subject", ""),
         )
         return web.json_response({"prompt": prompt, "negative_prompt": ASSET_TYPES[asset_type]["negative"]})
-
-    @server.routes.post("/h3_motion_context/qwen21_edit_assemble")
-    @require_same_origin
-    async def post_qwen21_edit_assemble(request):
-        data = await request.json()
-        return web.json_response({"prompt": build_edit_prompt(data.get("operation", "custom"), data.get("instruction", ""))})
 
     register_qwen21_routes._done = True
 
@@ -481,37 +438,5 @@ class QwenImage21VideoPrompt(cio.ComfyNode):
         return cio.NodeOutput(prompt, ASSET_TYPES[asset_type]["negative"], width, height)
 
 
-class QwenImage21EditPrompt(cio.ComfyNode):
-    @classmethod
-    def define_schema(cls):
-        return cio.Schema(
-            node_id="QwenImage21EditPrompt",
-            display_name="Qwen Image 2.1 Edit Prompt Builder",
-            category="video/minimax",
-            description=(
-                "Write a Qwen Image 2.1 edit instruction from an operation and one line of what to change. "
-                "Connect the prompt to the official image edit workflow; image_1 is the image being edited, "
-                "image_2 supplies the outfit or scene for the two-image operations."
-            ),
-            inputs=[
-                cio.Combo.Input("operation", options=list(EDIT_OPERATIONS.keys()), default="background",
-                                tooltip="编辑操作。换装和放进场景需要第 2 张图（image_2）。"),
-                cio.String.Input("instruction", default="", multiline=True, placeholder="改成什么，例如：阳光明媚的海边沙滩"),
-                cio.Boolean.Input("manual_prompt", default=False, tooltip="开启时直接输出 final_prompt（在预览框手动修改后自动开启）。"),
-                cio.String.Input("final_prompt", default="", multiline=True, placeholder="编辑指令预览/手动微调框"),
-            ],
-            outputs=[cio.String.Output(display_name="prompt")],
-        )
-
-    @classmethod
-    def execute(cls, operation, instruction, manual_prompt, final_prompt):
-        if manual_prompt and final_prompt.strip():
-            return cio.NodeOutput(final_prompt.strip())
-        return cio.NodeOutput(build_edit_prompt(operation, instruction))
-
-
-NODE_CLASS_MAPPINGS = {"QwenImage21VideoPrompt": QwenImage21VideoPrompt, "QwenImage21EditPrompt": QwenImage21EditPrompt}
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "QwenImage21VideoPrompt": "Qwen Image 2.1 Prompt Builder",
-    "QwenImage21EditPrompt": "Qwen Image 2.1 Edit Prompt Builder",
-}
+NODE_CLASS_MAPPINGS = {"QwenImage21VideoPrompt": QwenImage21VideoPrompt}
+NODE_DISPLAY_NAME_MAPPINGS = {"QwenImage21VideoPrompt": "Qwen Image 2.1 Prompt Builder"}

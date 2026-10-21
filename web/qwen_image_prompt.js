@@ -502,134 +502,15 @@ function installQwen21Builder(node) {
   node.setSize([Math.max(660, node.size[0]), Math.max(740, node.size[1])]);
 }
 
-function installQwen21Edit(node) {
-  if (node.qwen21Builder) return;
-  const { widgets, root, syncWidth } = setupPanel(node, ["operation", "instruction", "manual_prompt", "final_prompt"]);
-
-  const header = el("div", "q21vp-header");
-  const titleWrap = el("div", "q21vp-title");
-  titleWrap.append(el("span", "", "🖌️ Qwen Image 2.1 Edit Prompt Builder"));
-  const imagesBadge = el("span", "q21vp-badge", "接 1 张图");
-  imagesBadge.title = "图片直接接到官方编辑流程的 image_1 / image_2；image_1 是被编辑的图";
-  titleWrap.append(imagesBadge);
-  header.append(titleWrap);
-  root.append(header);
-
-  // 第一步：选择编辑操作
-  const secOp = el("div", "q21vp-sec");
-  secOp.append(el("div", "q21vp-sec-title", "🎯 第一步：选择编辑操作（点按钮看示例图）"));
-  const { makePicker } = createPickers(root);
-  const selOp = makePicker("edit_operation", "编辑操作", "示例图：右下角小图是原图，大图是编辑结果");
-  const row = el("div", "q21vp-grid2");
-  row.append(field("编辑操作", selOp.el));
-  secOp.append(row);
-  const opHint = el("div", "q21vp-hint", "");
-  secOp.append(opHint);
-  root.append(secOp);
-
-  // 第二步：改成什么
-  const heroSec = el("div", "q21vp-hero-sec");
-  heroSec.append(el("div", "q21vp-hero-title", "✏️ 第二步：写下要改成什么"));
-  const txtInstruction = el("textarea", "q21vp-hero-input");
-  heroSec.append(txtInstruction);
-  root.append(heroSec);
-
-  let catalog = null;
-  const schedule = debounce(() => runAssemble(), 120);
-  const preview = createPreview(widgets, "第三步：生成的编辑指令", () => schedule());
-  preview.sec.append(el("div", "q21vp-hint", "💡 指令接官方 Qwen Image 2.1 编辑流程的提示词输入；只有一张图时不写 <image1>，两张图时用 <image1>/<image2> 指明各自作用。"));
-  root.append(preview.sec);
-
-  function updateOperationUI() {
-    const op = catalog?.edit_operations?.[selOp.value];
-    if (!op) return;
-    imagesBadge.textContent = op.images > 1 ? "接 2 张图" : "接 1 张图";
-    opHint.textContent = op.images > 1
-      ? "📷 需要 2 张图：image_1 接要编辑的人物图，image_2 接提供服装或场景的图。"
-      : "📷 需要 1 张图：image_1 接要编辑的图。";
-    txtInstruction.disabled = !op.uses_text;
-    txtInstruction.placeholder = op.uses_text ? `例如：${op.example}` : "此操作不需要填写，直接使用固定指令。";
-  }
-
-  async function runAssemble() {
-    try {
-      const data = await postJson("/h3_motion_context/qwen21_edit_assemble", {
-        operation: selOp.value,
-        instruction: txtInstruction.value,
-      });
-      preview.show(data.prompt);
-    } catch (err) {
-      preview.setStatus(`同步参数出错: ${err.message}`, true);
-    }
-  }
-
-  function onOptionChange() {
-    preview.warnIfManual();
-    schedule();
-    node.setDirtyCanvas(true, true);
-  }
-
-  selOp.onchange = () => {
-    if (widgets.operation) widgets.operation.value = selOp.value;
-    updateOperationUI();
-    onOptionChange();
-  };
-  txtInstruction.addEventListener("input", () => {
-    if (widgets.instruction) widgets.instruction.value = txtInstruction.value;
-    onOptionChange();
-  });
-
-  function restoreFromWidgets() {
-    if (!catalog) return;
-    const cur = widgets.operation?.value;
-    selOp.value = catalog.edit_operations[cur] ? cur : "background";
-    txtInstruction.value = widgets.instruction?.value ?? "";
-    updateOperationUI();
-    preview.restore();
-    schedule();
-    syncWidth();
-  }
-
-  loadCatalog().then(cat => {
-    catalog = cat;
-    selOp.setOptions(cat.edit_operations);
-    restoreFromWidgets();
-  });
-
-  const oldConfigure = node.onConfigure;
-  node.onConfigure = function (...args) {
-    oldConfigure?.apply(this, args);
-    restoreFromWidgets();
-  };
-
-  node.addDOMWidget("qwen21_edit_prompt_ui", "custom", root, {
-    serialize: false,
-    hideOnZoom: false,
-    getMinHeight: () => 460,
-    getHeight: () => 560,
-    onDraw: widget => {
-      widget.width = node.size[0];
-    },
-  });
-
-  node.qwen21Builder = { root, restore: restoreFromWidgets };
-  node.setSize([Math.max(600, node.size[0]), Math.max(560, node.size[1])]);
-}
-
-const INSTALLERS = {
-  QwenImage21VideoPrompt: installQwen21Builder,
-  QwenImage21EditPrompt: installQwen21Edit,
-};
-
 app.registerExtension({
   name: "H3MotionContext.QwenImage21VideoPrompt",
   nodeCreated(node) {
-    INSTALLERS[node.comfyClass]?.(node);
+    if (node.comfyClass === "QwenImage21VideoPrompt") installQwen21Builder(node);
   },
   loadedGraphNode(node) {
-    const install = INSTALLERS[node.comfyClass];
-    if (!install) return;
-    install(node);
-    node.qwen21Builder.restore();
+    if (node.comfyClass === "QwenImage21VideoPrompt") {
+      installQwen21Builder(node);
+      node.qwen21Builder.restore();
+    }
   },
 });
