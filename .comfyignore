@@ -1,5 +1,4 @@
-# Caches and local env only. tests/ ships with the pack (smoke test,
-# seam/level/freeze probes, mock harness). Do not blanket-ignore it.
+# Caches and local env.
 __pycache__/
 *.py[cod]
 .venv/
@@ -10,3 +9,5 @@ venv/
 # Developer tools and their output, not part of the node pack.
 tools/
 dist/
+# Developer tests stay in the repository; the registry scan flags their environment access.
+tests/

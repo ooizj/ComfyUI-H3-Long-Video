@@ -26,6 +26,8 @@ layout. Each entry below says which of the two it works with.
   Long Video already logs the prompt it receives. AI rewrite logs follow
   the Prompt API's `log_prompts`, and their path is printed in the ComfyUI
   console instead of the editor.
+- `tests/` is no longer included in the registry package; it stays in the
+  GitHub repository.
 
 ## 0.12.0 - 2026-10-22
 
