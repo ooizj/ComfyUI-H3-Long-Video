@@ -28,7 +28,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 2. Connect **H3 Prompt API** to `prompt_api` and enter your API key or local server. **Required when the video needs more than one segment**; see [Why split the prompt?](#why-split-the-prompt).
 3. Write a description in **H3 Ref Prompt Builder** and click **AI to H3 prompt**, or write the H3 prompt yourself. Set `total_seconds` to the video length and run. `VIDEO` goes to **Save Video**.
 
-The example makes an 8-second video in two segments (`segment_seconds=5`): the node works out the segments itself and H3 Prompt API splits the prompt between them. Shorter segments use less VRAM per sampling pass but add encoding, decoding and continuation overhead, so they are not necessarily faster.
+The example uses `segment_seconds=5` only to show segmenting: its 8-second video is sampled in two segments, and H3 Prompt API splits the prompt between them. For your own videos keep the default `segment_seconds=15`; fewer segments usually finish sooner. Shorter segments use less VRAM per sampling pass but add encoding, decoding and continuation overhead, so shorten them only when VRAM is tight.
 
 <details>
 <summary>Notes on the example workflow</summary>
