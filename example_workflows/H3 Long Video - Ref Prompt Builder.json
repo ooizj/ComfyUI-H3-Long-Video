@@ -1,15 +1,15 @@
 {
   "id": "e7af59ca-5c5a-461d-8390-378ea9b17bb8",
   "revision": 0,
-  "last_node_id": 278,
-  "last_link_id": 557,
+  "last_node_id": 324,
+  "last_link_id": 631,
   "nodes": [
     {
       "id": 1,
       "type": "cba83ff6-df4b-41c7-b271-c6a81ee1f18d",
       "pos": [
-        -880.3910267585953,
-        12.65855195543402
+        -1193.5427179864444,
+        -394.407177130966
       ],
       "size": [
         494.8671826185612,
@@ -60,7 +60,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            543
+            630
           ]
         },
         {
@@ -68,7 +68,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            545
+            590
           ]
         },
         {
@@ -76,7 +76,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            546
+            631
           ]
         },
         {
@@ -84,7 +84,7 @@
           "name": "AUDIO_VAE",
           "type": "VAE",
           "links": [
-            547
+            589
           ]
         }
       ],
@@ -108,25 +108,25 @@
       "id": 3,
       "type": "SaveVideo",
       "pos": [
-        1061.6944203308235,
-        92.69167864150093
+        585.5011350060828,
+        -438.879504278446
       ],
       "size": [
-        420,
-        360
+        587.9127992215535,
+        586.1100325634957
       ],
       "flags": {},
-      "order": 5,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "视频",
+          "localized_name": "video",
           "name": "video",
           "type": "VIDEO",
-          "link": 544
+          "link": 593
         },
         {
-          "localized_name": "文件名前缀",
+          "localized_name": "filename_prefix",
           "name": "filename_prefix",
           "type": "STRING",
           "widget": {
@@ -135,7 +135,7 @@
           "link": null
         },
         {
-          "localized_name": "格式",
+          "localized_name": "format",
           "name": "format",
           "type": "COMFY_DYNAMICCOMBO_V3",
           "widget": {
@@ -144,7 +144,7 @@
           "link": null
         },
         {
-          "localized_name": "编解码器",
+          "localized_name": "codec",
           "name": "format.codec",
           "type": "COMFY_DYNAMICCOMBO_V3",
           "widget": {
@@ -153,7 +153,7 @@
           "link": null
         },
         {
-          "localized_name": "编码器",
+          "localized_name": "codec",
           "name": "codec",
           "shape": 7,
           "type": "COMFY_DYNAMICCOMBO_V3",
@@ -188,43 +188,130 @@
       }
     },
     {
-      "id": 273,
+      "id": 278,
+      "type": "ResolutionSelector",
+      "pos": [
+        763.9052032649538,
+        243.8604193407167
+      ],
+      "size": [
+        270,
+        170
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "showAdvanced": false,
+      "inputs": [
+        {
+          "localized_name": "aspect_ratio",
+          "name": "aspect_ratio",
+          "type": "COMBO",
+          "widget": {
+            "name": "aspect_ratio"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "megapixels",
+          "name": "megapixels",
+          "type": "FLOAT",
+          "widget": {
+            "name": "megapixels"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "multiple",
+          "name": "multiple",
+          "type": "INT",
+          "widget": {
+            "name": "multiple"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "preview",
+          "name": "preview",
+          "shape": 7,
+          "type": "RESOLUTION_PREVIEW",
+          "widget": {
+            "name": "preview"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": [
+            600
+          ]
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": [
+            601
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ResolutionSelector"
+      },
+      "widgets_values": [
+        "16:9 (Widescreen)",
+        0.5,
+        32
+      ],
+      "widgets_values_named": {
+        "aspect_ratio": "16:9 (Widescreen)",
+        "megapixels": 0.5,
+        "multiple": 32
+      }
+    },
+    {
+      "id": 300,
       "type": "MiniMaxH3LongVideo",
       "pos": [
-        479.21312536390195,
-        -146.85642056712615
+        142.3155407238205,
+        -587.8695272357012
       ],
       "size": [
         416.69481718895395,
         742.1112774728556
       ],
       "flags": {},
-      "order": 4,
+      "order": 7,
       "mode": 0,
+      "showAdvanced": true,
       "inputs": [
         {
           "localized_name": "model",
           "name": "model",
           "type": "MODEL",
-          "link": 543
+          "link": 630
         },
         {
           "localized_name": "clip",
           "name": "clip",
           "type": "CLIP",
-          "link": 545
+          "link": 590
         },
         {
           "localized_name": "vae",
           "name": "vae",
           "type": "VAE",
-          "link": 546
+          "link": 631
         },
         {
           "localized_name": "audio_vae",
           "name": "audio_vae",
           "type": "VAE",
-          "link": 547
+          "link": 589
         },
         {
           "localized_name": "first_frame",
@@ -234,18 +321,46 @@
           "link": null
         },
         {
+          "localized_name": "context_latent",
+          "name": "context_latent",
+          "shape": 7,
+          "type": "LATENT",
+          "link": null
+        },
+        {
+          "localized_name": "context_video",
+          "name": "context_video",
+          "shape": 7,
+          "type": "VIDEO",
+          "link": null
+        },
+        {
           "localized_name": "reference_images",
           "name": "reference_images",
           "shape": 7,
           "type": "IMAGE",
-          "link": 553
+          "link": 627
+        },
+        {
+          "localized_name": "reference_video_1",
+          "name": "reference_videos.reference_video_1",
+          "shape": 7,
+          "type": "VIDEO",
+          "link": null
+        },
+        {
+          "localized_name": "reference_audio_1",
+          "name": "reference_audios.reference_audio_1",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
         },
         {
           "localized_name": "prompt_api",
           "name": "prompt_api",
           "shape": 7,
           "type": "H3_PROMPT_API",
-          "link": 552
+          "link": 616
         },
         {
           "localized_name": "prompt",
@@ -255,7 +370,7 @@
           "widget": {
             "name": "prompt"
           },
-          "link": 554
+          "link": 626
         },
         {
           "localized_name": "total_seconds",
@@ -285,7 +400,7 @@
           "widget": {
             "name": "width"
           },
-          "link": 556
+          "link": 600
         },
         {
           "localized_name": "height",
@@ -295,7 +410,7 @@
           "widget": {
             "name": "height"
           },
-          "link": 557
+          "link": 601
         },
         {
           "localized_name": "segment_seconds",
@@ -376,21 +491,47 @@
             "name": "log_prompts"
           },
           "link": null
+        },
+        {
+          "localized_name": "ref_image_size",
+          "name": "ref_image_size",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "ref_image_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "⚠ save_latents",
+          "name": "save_latents",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_latents"
+          },
+          "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "视频",
+          "localized_name": "VIDEO",
           "name": "VIDEO",
           "type": "VIDEO",
           "links": [
-            544
+            593
           ]
         },
         {
           "localized_name": "prompt_preview",
           "name": "prompt_preview",
           "type": "STRING",
+          "links": []
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
           "links": null
         }
       ],
@@ -399,51 +540,56 @@
       },
       "widgets_values": [
         "",
-        10,
-        550435909494244,
+        8,
+        540705711791825,
         "randomize",
         960,
         544,
-        5,
-        6,
+        15,
+        8,
         "res_multistep",
         "simple",
         "22",
         24,
         true,
+        true,
+        "match",
         true
       ],
       "widgets_values_named": {
         "prompt": "",
-        "total_seconds": 10,
-        "seed": 550435909494244,
+        "total_seconds": 8,
+        "seed": 540705711791825,
         "control_after_generate": "randomize",
         "width": 960,
         "height": 544,
-        "segment_seconds": 5,
-        "steps": 6,
+        "segment_seconds": 15,
+        "steps": 8,
         "sampler_name": "res_multistep",
         "scheduler": "simple",
         "context_length": "22",
         "audio_context_length": 24,
         "tiled_decode": true,
-        "log_prompts": true
+        "log_prompts": true,
+        "ref_image_size": "match",
+        "save_latents": true
       }
     },
     {
-      "id": 274,
+      "id": 314,
       "type": "MiniMaxH3PromptAPI",
       "pos": [
-        -814.4634146929255,
-        305.93551950534095
+        -1141.9317419184893,
+        -108.9952583299621
       ],
       "size": [
         437.06832235490026,
-        234
+        306
       ],
       "flags": {},
-      "order": 1,
+      "order": 2,
       "mode": 0,
+      "showAdvanced": true,
       "inputs": [
         {
           "localized_name": "api_url",
@@ -522,6 +668,26 @@
             "name": "log_prompts"
           },
           "link": null
+        },
+        {
+          "localized_name": "local_llm",
+          "name": "local_llm",
+          "shape": 7,
+          "type": "COMBO",
+          "widget": {
+            "name": "local_llm"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "unload_url",
+          "name": "unload_url",
+          "shape": 7,
+          "type": "STRING",
+          "widget": {
+            "name": "unload_url"
+          },
+          "link": null
         }
       ],
       "outputs": [
@@ -530,8 +696,8 @@
           "name": "prompt_api",
           "type": "H3_PROMPT_API",
           "links": [
-            552,
-            555
+            615,
+            616
           ]
         }
       ],
@@ -546,7 +712,9 @@
         65535,
         180,
         0,
-        true
+        true,
+        "auto",
+        ""
       ],
       "widgets_values_named": {
         "api_url": "https://api.deepseek.com",
@@ -556,22 +724,24 @@
         "max_tokens": 65535,
         "timeout_seconds": 180,
         "variation": 0,
-        "log_prompts": true
+        "log_prompts": true,
+        "local_llm": "auto",
+        "unload_url": ""
       }
     },
     {
-      "id": 277,
+      "id": 315,
       "type": "MiniMaxH3LongVideoRefPromptBuilder",
       "pos": [
-        -322.1717456489963,
-        -176.16342748087783
+        -665.7325905537825,
+        -406.22017617196116
       ],
       "size": [
-        742.0347997419392,
-        1259.4751101944496
+        784.522958086215,
+        1153.658946065178
       ],
       "flags": {},
-      "order": 3,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -579,59 +749,14 @@
           "name": "prompt_api",
           "shape": 7,
           "type": "H3_PROMPT_API",
-          "link": 555
+          "link": 615
         },
         {
-          "localized_name": "subject_definitions",
-          "name": "subject_definitions",
+          "localized_name": "prompt",
+          "name": "prompt",
           "type": "STRING",
           "widget": {
-            "name": "subject_definitions"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "summary",
-          "name": "summary",
-          "type": "STRING",
-          "widget": {
-            "name": "summary"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "retention_analysis",
-          "name": "retention_analysis",
-          "type": "STRING",
-          "widget": {
-            "name": "retention_analysis"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "detailed_description",
-          "name": "detailed_description",
-          "type": "STRING",
-          "widget": {
-            "name": "detailed_description"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "overall_soundscape",
-          "name": "overall_soundscape",
-          "type": "STRING",
-          "widget": {
-            "name": "overall_soundscape"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "non_diegetic_music",
-          "name": "non_diegetic_music",
-          "type": "STRING",
-          "widget": {
-            "name": "non_diegetic_music"
+            "name": "prompt"
           },
           "link": null
         },
@@ -664,12 +789,12 @@
           "link": null
         },
         {
-          "localized_name": "log_prompts",
-          "name": "log_prompts",
+          "localized_name": "ai_language",
+          "name": "ai_language",
           "shape": 7,
-          "type": "BOOLEAN",
+          "type": "COMBO",
           "widget": {
-            "name": "log_prompts"
+            "name": "ai_language"
           },
           "link": null
         }
@@ -680,7 +805,7 @@
           "name": "prompt",
           "type": "STRING",
           "links": [
-            554
+            626
           ]
         },
         {
@@ -688,216 +813,120 @@
           "name": "reference_images",
           "type": "IMAGE",
           "links": [
-            553
+            627
           ]
         }
       ],
       "properties": {
         "Node name for S&R": "MiniMaxH3LongVideoRefPromptBuilder",
-        "h3_import_text": "subject_definitions:\n<Subject 1> 是 <Picture 1> 中穿黑色衬衣的男子。\n<Subject 2> 是 <Picture 2> 中穿白色针织衫的女孩。\n<Subject 3> 是 <Picture 3> 中的餐厅环境。\n\nsummary:\n[keyframe completion + reference generation]\n一个10秒的视频：<Subject 1> 与 <Subject 2> 在 <Subject 3> 的餐厅内交谈，女子突然想起忘记关门，露出惊讶的表情并站起。\n\nretention_analysis:\n<Subject 1>：fully_preserved，保持男子的面部、发型和服装。\n<Subject 2>：fully_preserved，保持女子的面部、发型和白色针织衫。\n<Subject 3>：fully_preserved，保持餐厅灯光、家具和桌椅布局。\n\nShot 1 从所接首帧的构图开始。\n\ndetailed_description:\n写实电影风格，柔和室内光线。\n[Shot 1] 在 Shot 1 的 0–6 秒内，镜头缓慢、小幅向前推进，保持两位人物及各自的水杯可见。该镜头内部不切镜。\n0–3 秒：<Subject 1> (S1)抬眼看向女子，微笑着热情地说：<d>[Chinese] 你好！</d>，女子看着他，自然地眨着眼睛，嘴唇紧闭，静静地听着。\n3–6 秒：<Subject 2> (S2)看着男子，说<d>[Chinese] 见到你很高兴！</d> 。\n[Shot 2] At 00:06.000, 镜头切到女子面部近景。\n6–7 秒：女子露出惊讶的表情。\n[Shot 3] At 00:07.000, 镜头切到 <Subject 2> 的全身镜头，头到脚及身后的椅子均在画面内，保持原来的摄像机轴线。\n7–9 秒：<Subject 2> (S2) 突然起身，椅子随动作向后轻移，约第 7 秒发出短促的椅脚摩擦地面声。她急切地说：<d>[Chinese] 完了，忘了关门！</d>\n9–10 秒：<Subject 2>已经站稳，保持着急的神情，短暂停顿。\n镜头继续保持，无新增对白。\n\n每句引语都由指定的说话者朗读一遍。口型自然地跟随发音。听者保持沉默。呼吸、眨眼和细微的面部表情在动作间隙持续进行。屏幕上不显示字幕或其他文字。\n\noverall_soundscape:\n安静、持续的餐厅环境声，伴有轻微的画外刀叉碰盘声。\n普通话对白清晰，环境声保持低音量。女子起身时出现同步的椅脚摩擦声。\n无旁白。\n\nnon_diegetic_music:\nN/A"
+        "h3_import_text": "8 seconds total, realistic, warm lighting, first-person POV. I kneel at a low table in the tea room (Picture 2), looking slightly down; my face never appears and I don't speak.\nLin Wan (Picture 1) kneels across the table, centered in the frame.\n0–3 s: she lifts a celadon teapot and pours tea into a small cup; steam rises.\n3–5 s: she holds the cup in both hands, pushes it toward me and says softly (3–5 s): \"Careful, it's hot.\"\n5–8 s: my hands reach in from the bottom of the frame and take the cup, bringing it close to the lens; she smiles and rests her hands back on her knees."
       },
       "widgets_values": [
-        "<Subject 1> 是 <Picture 1> 中穿黑色衬衣的男子。\n<Subject 2> 是 <Picture 2> 中穿白色针织衫的女孩。\n<Subject 3> 是 <Picture 3> 中的餐厅环境。",
-        "[keyframe completion + reference generation]\n一个10秒的视频：<Subject 1> 与 <Subject 2> 在 <Subject 3> 的餐厅内交谈，女子突然想起忘记关门，露出惊讶的表情并站起。",
-        "<Subject 1>：fully_preserved，保持男子的面部、发型和服装。\n<Subject 2>：fully_preserved，保持女子的面部、发型和白色针织衫。\n<Subject 3>：fully_preserved，保持餐厅灯光、家具和桌椅布局。\n\nShot 1 从所接首帧的构图开始。",
-        "写实电影风格，柔和室内光线。\n[Shot 1] 在 Shot 1 的 0–6 秒内，镜头缓慢、小幅向前推进，保持两位人物及各自的水杯可见。该镜头内部不切镜。\n0–3 秒：<Subject 1> (S1)抬眼看向女子，微笑着热情地说：<d>[Chinese] 你好！</d>，女子看着他，自然地眨着眼睛，嘴唇紧闭，静静地听着。\n3–6 秒：<Subject 2> (S2)看着男子，说<d>[Chinese] 见到你很高兴！</d> 。\n[Shot 2] At 00:06.000, 镜头切到女子面部近景。\n6–7 秒：女子露出惊讶的表情。\n[Shot 3] At 00:07.000, 镜头切到 <Subject 2> 的全身镜头，头到脚及身后的椅子均在画面内，保持原来的摄像机轴线。\n7–9 秒：<Subject 2> (S2) 突然起身，椅子随动作向后轻移，约第 7 秒发出短促的椅脚摩擦地面声。她急切地说：<d>[Chinese] 完了，忘了关门！</d>\n9–10 秒：<Subject 2>已经站稳，保持着急的神情，短暂停顿。\n镜头继续保持，无新增对白。\n\n每句引语都由指定的说话者朗读一遍。口型自然地跟随发音。听者保持沉默。呼吸、眨眼和细微的面部表情在动作间隙持续进行。屏幕上不显示字幕或其他文字。",
-        "安静、持续的餐厅环境声，伴有轻微的画外刀叉碰盘声。\n普通话对白清晰，环境声保持低音量。女子起身时出现同步的椅脚摩擦声。\n无旁白。",
-        "N/A",
-        "[\"h3_prompt_builder/exec-1e045614-0f3f-4b0a-ac55-e651d7b0913c.png [input]\",\"h3_prompt_builder/exec-69bc3253-18f3-42a3-8de6-de35d0a1da0c.png [input]\",\"h3_prompt_builder/exec-1fbaf138-d658-4515-a76f-824704a880bd.png [input]\"]",
+        "subject_definitions:\n<Subject 1> is the first-person narrator, whose face is not visible, wearing soft white sleeves visible at the wrists.\n<Subject 2> is the young woman in <Picture 1>, with long dark hair in a bun secured by a silver hairpin, a red floral mark on her forehead, wearing a blue hanfu robe with a white inner layer, a maroon sash, and dangling earrings.\n<Subject 3> is the cozy room in <Picture 2>, featuring a large round window with a night view, wooden furniture, a low table, floor cushions, a fireplace, and warm lantern lighting.\n\nsummary:\n[reference generation] A first-person view of a quiet evening moment where a woman pours tea and hands a cup to the narrator in a warm, rustic room.\n\nretention_analysis:\n<Subject 2> (appears in [Shot 1]): fully_preserved - hair bun, silver hairpin, red forehead mark, blue hanfu, white inner layer, maroon sash, dangling earrings.\n<Subject 3> (appears in [Shot 1]): fully_preserved - large round window with night view, wooden furniture, low table, floor cushions, fireplace, lantern lighting, potted plants.\n\ndetailed_description:\nThe scene is set in a warm, rustic room with soft lighting, rendered in a realistic style. The camera maintains a stable first-person POV, looking slightly down across a low table.\n[Shot 1]\nFrom 0 to 3 seconds: The frame is centered on <Subject 2> kneeling at the table, facing the camera. She lifts a celadon teapot with her right hand and pours tea into a small cup on the table. Steam rises gently from the cup. Her expression is calm and focused. The background shows the round window and the warm glow of the room.\nFrom 3 to 5 seconds: <Subject 2> holds the tea cup in both hands. She pushes it gently toward the bottom of the frame. <Subject 2> (S1) says: <d>[English] Careful, it's hot.</d>\nFrom 5 to 8 seconds: <Subject 1>'s hands enter the frame from the bottom and take the cup, bringing it closer to the lens. <Subject 2> smiles softly and rests her hands back on her knees. The shot remains steady as the cup moves closer to the viewer.\n\noverall_soundscape:\nA quiet, warm indoor atmosphere with soft ambient room tone. The dialogue is clear and intimate. No background music.\n\nnon_diegetic_music:\nN/A",
+        "[\"h3_prompt_builder/linwan_sheet.png [input]\",\"h3_prompt_builder/ref_07.png [input]\"]",
         0,
         true,
-        true,
+        "English",
         ""
       ],
       "widgets_values_named": {
-        "subject_definitions": "<Subject 1> 是 <Picture 1> 中穿黑色衬衣的男子。\n<Subject 2> 是 <Picture 2> 中穿白色针织衫的女孩。\n<Subject 3> 是 <Picture 3> 中的餐厅环境。",
-        "summary": "[keyframe completion + reference generation]\n一个10秒的视频：<Subject 1> 与 <Subject 2> 在 <Subject 3> 的餐厅内交谈，女子突然想起忘记关门，露出惊讶的表情并站起。",
-        "retention_analysis": "<Subject 1>：fully_preserved，保持男子的面部、发型和服装。\n<Subject 2>：fully_preserved，保持女子的面部、发型和白色针织衫。\n<Subject 3>：fully_preserved，保持餐厅灯光、家具和桌椅布局。\n\nShot 1 从所接首帧的构图开始。",
-        "detailed_description": "写实电影风格，柔和室内光线。\n[Shot 1] 在 Shot 1 的 0–6 秒内，镜头缓慢、小幅向前推进，保持两位人物及各自的水杯可见。该镜头内部不切镜。\n0–3 秒：<Subject 1> (S1)抬眼看向女子，微笑着热情地说：<d>[Chinese] 你好！</d>，女子看着他，自然地眨着眼睛，嘴唇紧闭，静静地听着。\n3–6 秒：<Subject 2> (S2)看着男子，说<d>[Chinese] 见到你很高兴！</d> 。\n[Shot 2] At 00:06.000, 镜头切到女子面部近景。\n6–7 秒：女子露出惊讶的表情。\n[Shot 3] At 00:07.000, 镜头切到 <Subject 2> 的全身镜头，头到脚及身后的椅子均在画面内，保持原来的摄像机轴线。\n7–9 秒：<Subject 2> (S2) 突然起身，椅子随动作向后轻移，约第 7 秒发出短促的椅脚摩擦地面声。她急切地说：<d>[Chinese] 完了，忘了关门！</d>\n9–10 秒：<Subject 2>已经站稳，保持着急的神情，短暂停顿。\n镜头继续保持，无新增对白。\n\n每句引语都由指定的说话者朗读一遍。口型自然地跟随发音。听者保持沉默。呼吸、眨眼和细微的面部表情在动作间隙持续进行。屏幕上不显示字幕或其他文字。",
-        "overall_soundscape": "安静、持续的餐厅环境声，伴有轻微的画外刀叉碰盘声。\n普通话对白清晰，环境声保持低音量。女子起身时出现同步的椅脚摩擦声。\n无旁白。",
-        "non_diegetic_music": "N/A",
-        "pictures": "[\"h3_prompt_builder/exec-1e045614-0f3f-4b0a-ac55-e651d7b0913c.png [input]\",\"h3_prompt_builder/exec-69bc3253-18f3-42a3-8de6-de35d0a1da0c.png [input]\",\"h3_prompt_builder/exec-1fbaf138-d658-4515-a76f-824704a880bd.png [input]\"]",
+        "prompt": "subject_definitions:\n<Subject 1> is the first-person narrator, whose face is not visible, wearing soft white sleeves visible at the wrists.\n<Subject 2> is the young woman in <Picture 1>, with long dark hair in a bun secured by a silver hairpin, a red floral mark on her forehead, wearing a blue hanfu robe with a white inner layer, a maroon sash, and dangling earrings.\n<Subject 3> is the cozy room in <Picture 2>, featuring a large round window with a night view, wooden furniture, a low table, floor cushions, a fireplace, and warm lantern lighting.\n\nsummary:\n[reference generation] A first-person view of a quiet evening moment where a woman pours tea and hands a cup to the narrator in a warm, rustic room.\n\nretention_analysis:\n<Subject 2> (appears in [Shot 1]): fully_preserved - hair bun, silver hairpin, red forehead mark, blue hanfu, white inner layer, maroon sash, dangling earrings.\n<Subject 3> (appears in [Shot 1]): fully_preserved - large round window with night view, wooden furniture, low table, floor cushions, fireplace, lantern lighting, potted plants.\n\ndetailed_description:\nThe scene is set in a warm, rustic room with soft lighting, rendered in a realistic style. The camera maintains a stable first-person POV, looking slightly down across a low table.\n[Shot 1]\nFrom 0 to 3 seconds: The frame is centered on <Subject 2> kneeling at the table, facing the camera. She lifts a celadon teapot with her right hand and pours tea into a small cup on the table. Steam rises gently from the cup. Her expression is calm and focused. The background shows the round window and the warm glow of the room.\nFrom 3 to 5 seconds: <Subject 2> holds the tea cup in both hands. She pushes it gently toward the bottom of the frame. <Subject 2> (S1) says: <d>[English] Careful, it's hot.</d>\nFrom 5 to 8 seconds: <Subject 1>'s hands enter the frame from the bottom and take the cup, bringing it closer to the lens. <Subject 2> smiles softly and rests her hands back on her knees. The shot remains steady as the cup moves closer to the viewer.\n\noverall_soundscape:\nA quiet, warm indoor atmosphere with soft ambient room tone. The dialogue is clear and intimate. No background music.\n\nnon_diegetic_music:\nN/A",
+        "pictures": "[\"h3_prompt_builder/linwan_sheet.png [input]\",\"h3_prompt_builder/ref_07.png [input]\"]",
         "ai_request": 0,
         "ai_read_images": true,
-        "log_prompts": true,
+        "ai_language": "English",
         "h3_ref_editor": ""
-      }
-    },
-    {
-      "id": 278,
-      "type": "ResolutionSelector",
-      "pos": [
-        487.9688606595699,
-        639.5826281320451
-      ],
-      "size": [
-        270,
-        170
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "showAdvanced": false,
-      "inputs": [
-        {
-          "localized_name": "宽高比",
-          "name": "aspect_ratio",
-          "type": "COMBO",
-          "widget": {
-            "name": "aspect_ratio"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "百万像素",
-          "name": "megapixels",
-          "type": "FLOAT",
-          "widget": {
-            "name": "megapixels"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "倍数",
-          "name": "multiple",
-          "type": "INT",
-          "widget": {
-            "name": "multiple"
-          },
-          "link": null
-        },
-        {
-          "localized_name": "preview",
-          "name": "preview",
-          "shape": 7,
-          "type": "RESOLUTION_PREVIEW",
-          "widget": {
-            "name": "preview"
-          },
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "宽度",
-          "name": "width",
-          "type": "INT",
-          "links": [
-            556
-          ]
-        },
-        {
-          "localized_name": "高度",
-          "name": "height",
-          "type": "INT",
-          "links": [
-            557
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "ResolutionSelector"
-      },
-      "widgets_values": [
-        "16:9 (Widescreen)",
-        0.5,
-        32
-      ],
-      "widgets_values_named": {
-        "aspect_ratio": "16:9 (Widescreen)",
-        "megapixels": 0.5,
-        "multiple": 32
       }
     }
   ],
   "links": [
     [
-      543,
+      589,
       1,
-      0,
-      273,
-      0,
-      "MODEL"
+      3,
+      300,
+      3,
+      "VAE"
     ],
     [
-      545,
+      590,
       1,
       1,
-      273,
+      300,
       1,
       "CLIP"
     ],
     [
-      546,
-      1,
-      2,
-      273,
-      2,
-      "VAE"
-    ],
-    [
-      547,
-      1,
-      3,
-      273,
-      3,
-      "VAE"
-    ],
-    [
-      552,
-      274,
+      615,
+      314,
       0,
-      273,
-      6,
+      315,
+      0,
       "H3_PROMPT_API"
     ],
     [
-      553,
-      277,
-      1,
-      273,
-      5,
-      "IMAGE"
+      616,
+      314,
+      0,
+      300,
+      10,
+      "H3_PROMPT_API"
     ],
     [
-      554,
-      277,
+      600,
+      278,
       0,
-      273,
-      7,
+      300,
+      14,
+      "INT"
+    ],
+    [
+      601,
+      278,
+      1,
+      300,
+      15,
+      "INT"
+    ],
+    [
+      626,
+      315,
+      0,
+      300,
+      11,
       "STRING"
     ],
     [
-      555,
-      274,
-      0,
-      277,
-      0,
-      "H3_PROMPT_API"
-    ],
-    [
-      556,
-      278,
-      0,
-      273,
-      10,
-      "INT"
-    ],
-    [
-      557,
-      278,
+      627,
+      315,
       1,
-      273,
-      11,
-      "INT"
+      300,
+      7,
+      "IMAGE"
     ],
     [
-      544,
-      273,
+      593,
+      300,
       0,
       3,
       0,
       "VIDEO"
+    ],
+    [
+      630,
+      1,
+      0,
+      300,
+      0,
+      "MODEL"
+    ],
+    [
+      631,
+      1,
+      2,
+      300,
+      2,
+      "VAE"
     ]
   ],
   "groups": [],
@@ -1309,11 +1338,11 @@
               "Node name for S&R": "LoraLoaderModelOnly"
             },
             "widgets_values": [
-              "minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors",
+              "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
               0.8
             ],
             "widgets_values_named": {
-              "lora_name": "minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors",
+              "lora_name": "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
               "strength_model": 0.8
             }
           },
@@ -1619,10 +1648,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.876922695000001,
+      "scale": 0.45,
       "offset": [
-        1043.7990026323641,
-        260.18992826410226
+        2712.8361908757547,
+        1033.8351475838167
       ]
     }
   },
