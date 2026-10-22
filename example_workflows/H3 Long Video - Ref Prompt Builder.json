@@ -545,7 +545,7 @@
         "randomize",
         960,
         544,
-        15,
+        5,
         8,
         "res_multistep",
         "simple",
@@ -563,7 +563,7 @@
         "control_after_generate": "randomize",
         "width": 960,
         "height": 544,
-        "segment_seconds": 15,
+        "segment_seconds": 5,
         "steps": 8,
         "sampler_name": "res_multistep",
         "scheduler": "simple",
@@ -1648,10 +1648,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.45,
+      "scale": 0.5989500000000003,
       "offset": [
-        2712.8361908757547,
-        1033.8351475838167
+        1323.2691042562321,
+        825.5472358505064
       ]
     }
   },

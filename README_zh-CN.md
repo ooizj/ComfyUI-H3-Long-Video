@@ -28,7 +28,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 2. 把 **H3 Prompt API** 接到 `prompt_api`，填写 API 密钥或本地服务地址。**视频需要多段时必须连接**，见[为什么要拆分提示词](#为什么要拆分提示词)。
 3. 在 **H3 Ref Prompt Builder** 写好描述后点 **AI 生成 H3 提示词**，或自己写 H3 提示词。把 `total_seconds` 设为视频时长后运行，`VIDEO` 接 **Save Video**。
 
-示例生成一段 8 秒视频（`segment_seconds=15`，只有一段）；`total_seconds` 更长时，段数由节点自动计算。较短的分段可降低单次采样显存，但会增加编码、解码和续接开销，不一定更快。
+示例生成 8 秒视频，`segment_seconds=5`，分成两段：段数由节点自动计算，H3 Prompt API 负责把提示词拆到各段。较短的分段可降低单次采样显存，但会增加编码、解码和续接开销，不一定更快。
 
 <details>
 <summary>示例工作流说明</summary>
