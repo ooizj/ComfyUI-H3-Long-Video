@@ -8,6 +8,25 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
+## Unreleased
+
+- **H3 Ref Prompt Builder** has two text boxes instead of seven: a
+  description, which keeps the old import text, and the H3 prompt, which
+  replaces the six field boxes. **AI to H3 prompt** writes the description
+  as the six fields; **Insert field headings** adds the missing headings for
+  writing by hand. Saved workflows are converted when opened in the ComfyUI
+  editor; API-format prompts must replace the six field inputs with one
+  `prompt`.
+- The AI buttons sit next to the box they use and explanations moved into
+  tooltips. AI results, inserted headings and picture changes are steps of
+  ComfyUI's own undo/redo instead of a separate single-step Undo button.
+  The editor shows where the timeline ends and warns when it differs from
+  the connected Long Video's `total_seconds`.
+- Builder no longer has its own `log_prompts` or writes a log on manual runs;
+  Long Video already logs the prompt it receives. AI rewrite logs follow
+  the Prompt API's `log_prompts`, and their path is printed in the ComfyUI
+  console instead of the editor.
+
 ## 0.12.0 - 2026-10-22
 
 Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.

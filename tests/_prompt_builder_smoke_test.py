@@ -28,25 +28,25 @@ def main():
     fields.update(subject_definitions="<Subject 1> 来自 <Picture 1>。",
                   detailed_description="[Shot 1] 0–3 秒：走近。\n[Shot 2] At 00:03.000, 转为近景。",
                   non_diegetic_music="N/A")
+    prompt = builder.assemble_prompt(fields)
     with patch.object(builder, "rewrite_fields", side_effect=AssertionError("manual mode called LLM")), CurrentNodeContext("builder-smoke", "42"):
-        result = builder.MiniMaxH3PromptBuilder.execute(**fields, prompt_api={"model": "test"})
-    assert result[0] == builder.assemble_prompt(fields) and result[1] is None
-    assert result.ui["h3_fields"][0] == fields
-    manual_path = Path(result.ui["h3_log"][0])
-    manual = json.loads(manual_path.with_suffix(".json").read_text(encoding="utf-8"))
-    assert manual["final_prompt"] == result[0] and manual["operation"] == "builder_output"
-    assert manual["prompt_id"] == "builder-smoke" and manual["node_id"] == "42"
-    assert result[0] in manual_path.read_text(encoding="utf-8")
-    before_logs = set(manual_path.parent.iterdir())
-    assert not builder.MiniMaxH3PromptBuilder.execute(**fields, log_prompts=False).ui["h3_log"]
-    assert set(manual_path.parent.iterdir()) == before_logs
-    with patch.object(Path, "write_text", side_effect=OSError(28, "disk full")):
-        assert builder.MiniMaxH3PromptBuilder.execute(**fields)[0] == result[0]
+        result = builder.MiniMaxH3PromptBuilder.execute(prompt, prompt_api={"model": "test"})
+    assert result[0] == prompt and result[1] is None
+    assert builder.MiniMaxH3PromptBuilder.execute("一个女孩在雨中散步。")[0] == "一个女孩在雨中散步。"
+    assert builder.split_fields(prompt) == fields
+    assert builder.split_fields("## **Summary**: 概述\nsubject_definitions：主体") == {**dict.fromkeys(builder.FIELDS, ""), "summary": "概述", "subject_definitions": "主体"}
+    assert builder.split_fields("女孩说：summary: 不是标题") == {**dict.fromkeys(builder.FIELDS, ""), "detailed_description": "女孩说：summary: 不是标题"}
+    try:
+        builder.split_fields("summary:\na\nsummary:\nb")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("duplicate heading accepted")
     with tempfile.TemporaryDirectory() as directory, patch.object(folder_paths, "get_input_directory", return_value=directory):
         Image.new("RGB", (8, 4), "red").save(Path(directory) / "red.png")
         Image.new("RGB", (4, 8), "blue").save(Path(directory) / "blue.png")
         pictures = json.dumps(["red.png", "blue.png"])
-        result = builder.MiniMaxH3PromptBuilder.execute(**fields, pictures=pictures)
+        result = builder.MiniMaxH3PromptBuilder.execute(prompt, pictures=pictures)
         assert tuple(result[1].shape) == (2, 8, 8, 3)
         assert result[1][0, 3, 3].tolist() == [1, 0, 0]
         assert result[1][1, 3, 3].tolist() == [0, 0, 1]
@@ -92,9 +92,11 @@ def main():
             assert builder.SYSTEM_PROMPTS["English"] in readable and builder.assemble_prompt(fields) in readable
             assert "data:image" not in readable
         with patch.object(builder, "rewrite_fields", return_value=fields) as rewrite:
-            builder.MiniMaxH3PromptBuilder.execute(**fields, pictures=pictures, ai_request=1, prompt_api=config, ai_read_images=False)
-            assert rewrite.call_args.args[3] == () and rewrite.call_args.kwargs["language"] == "English"
-            builder.MiniMaxH3PromptBuilder.execute(**fields, ai_request=1, prompt_api=config, ai_language="中文")
+            result = builder.MiniMaxH3PromptBuilder.execute(prompt, pictures=pictures, ai_request=1, prompt_api=config, ai_read_images=False)
+            assert rewrite.call_args.args[0] == fields and rewrite.call_args.args[3] == ()
+            assert rewrite.call_args.kwargs["language"] == "English" and result[0] == prompt
+            builder.MiniMaxH3PromptBuilder.execute("雨中散步。", ai_request=1, prompt_api=config, ai_language="中文")
+            assert rewrite.call_args.args[0]["detailed_description"] == "雨中散步。"
             assert rewrite.call_args.kwargs["language"] == "中文"
         try:
             builder.picture_paths('["../outside.png"]')
@@ -118,7 +120,6 @@ def main():
     response = {"choices": [{"message": {"content": json.dumps(malformed)}, "finish_reason": "stop"}]}
     with patch.object(builder, "request_chat", return_value=response):
         assert builder.rewrite_fields(malformed, 2, config) == normalized
-    assert builder.MiniMaxH3PromptBuilder.execute(**malformed, log_prompts=False)[0] == builder.assemble_prompt(malformed)
     with patch.object(builder, "request_chat", return_value={"choices": [{"message": {"content": "{}"}, "finish_reason": "stop"}]}):
         try:
             builder.rewrite_fields(fields, 0, config)
@@ -160,11 +161,11 @@ def main():
         schema = request.call_args.args[1]["response_format"]["json_schema"]["schema"]
         assert schema["required"] == list(builder.FIELDS) and schema["additionalProperties"] is False
         release.assert_called_once_with(True, "http://127.0.0.1:8081/api/models/unload")
-    reports = [json.loads(p.read_text(encoding="utf-8")) for p in manual_path.parent.glob("*.json")]
-    failure, = [r for r in reports if r["status"] == "failed"]
+    failure, = [json.loads(p.read_text(encoding="utf-8")) for p in Path(folder_paths.get_output_directory(), "h3_prompt_logs").glob("*_builder.json")
+                if json.loads(p.read_text(encoding="utf-8"))["status"] == "failed"]
     assert failure["requests"][0]["messages"][0]["content"] == builder.SYSTEM_PROMPTS["English"]
     assert failure["error"] == "RuntimeError: API unavailable" and failure["final_prompt"] is None
-    print("PASS: manual text, image batch/order, file cache, path containment, compressed vision payload, EXIF/size/original preservation, safe logs, vision opt-out, output language, API contract, invalid AI response, local LLM unload")
+    print("PASS: manual text, field headings, image batch/order, file cache, path containment, compressed vision payload, EXIF/size/original preservation, safe logs, vision opt-out, output language, API contract, invalid AI response, local LLM unload")
 
 
 if __name__ == "__main__":

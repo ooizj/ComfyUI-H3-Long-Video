@@ -190,19 +190,11 @@
     }
   },
   "MiniMaxH3LongVideoRefPromptBuilder": {
-    "description": "Ref2VA 六段提示词与图片编辑器。直接填写即可使用；连接 H3 Prompt API 后可点击 AI 整理。",
+    "description": "Ref2VA 提示词与参考图编辑器。直接填写即可使用；连接 H3 Prompt API 后可用 AI 整理成六段。",
     "inputs": {
-      "subject_definitions": { "tooltip": "主体定义" },
-      "summary": { "tooltip": "内容概述" },
-      "retention_analysis": { "tooltip": "参考保留规则" },
-      "detailed_description": { "tooltip": "画面与动作时间线" },
-      "overall_soundscape": { "tooltip": "整体环境声" },
-      "non_diegetic_music": { "tooltip": "背景音乐" },
+      "prompt": { "tooltip": "带六段字段标题的 Ref2VA 提示词，或交给 AI 整理的普通描述。" },
       "ai_read_images": {
         "tooltip": "AI 读取压缩后的参考图。需要视觉模型；关闭后仅处理文字。"
-      },
-      "log_prompts": {
-        "tooltip": "保存原文、最终提示词和 AI 输入/回复到 output/h3_prompt_logs。连接的 Prompt API 也需开启 log_prompts。"
       },
       "ai_language": {
         "tooltip": "AI 整理输出的描述语言。English 符合 H3 官方 Ref2VA 格式；台词始终保留原语言。"

@@ -25,7 +25,6 @@ FIELDS = (
     "subject_definitions", "summary", "retention_analysis", "detailed_description",
     "overall_soundscape", "non_diegetic_music",
 )
-LABELS = ("Subject definitions", "Summary", "Retention analysis", "Shots and timed actions", "Overall soundscape", "Background music")
 _LOG = logging.getLogger("h3_motion_context")
 _PROMPT = """你是 MiniMax H3 Ref2VA 提示词编辑。忠实保留用户要求，结合参考图片写出六段可执行提示词。
 输入的 fields 可能已有六段内容，也可能只有 detailed_description 放着整篇普通描述。
@@ -179,6 +178,26 @@ def assemble_prompt(fields):
     return "\n\n".join(f"{name}:\n{fields[name]}" for name in FIELDS)
 
 
+_HEADING = re.compile(rf"^[ \t]*(?:#{{1,6}}[ \t]+)?(?:\*\*)?({'|'.join(FIELDS)})(?:\*\*)?[ \t]*(?:[:：][ \t]*(?:\*\*)?[ \t]*|(?=\r?$))",
+                      re.IGNORECASE | re.MULTILINE)
+
+
+def split_fields(prompt):
+    """Six fields from a prompt written with field headings; a plain description goes to detailed_description."""
+    text = prompt.strip()
+    matches = list(_HEADING.finditer(text))
+    fields = dict.fromkeys(FIELDS, "")
+    if not matches or text[:matches[0].start()].strip():
+        fields["detailed_description"] = text
+        return fields
+    for match, following in zip(matches, matches[1:] + [None]):
+        name = match[1].lower()
+        if fields[name]:
+            raise ValueError(f"The prompt has two {name} headings. Merge them before AI rewrite.")
+        fields[name] = text[match.end():following.start() if following else len(text)].strip()
+    return fields
+
+
 _LANGUAGE_TAG = re.compile(r"^\s*\[[^\]]*\]")
 
 
@@ -206,11 +225,9 @@ def picture_content(paths):
     return content, metadata
 
 
-def save_builder_log(fields, result, pictures, model, elapsed, responses, api_key,
-                     payload=None, path=None, error=None):
-    requests = [prompt_request_log(payload, "H3 fields")] if payload else []
-    report = {"operation": "ai_rewrite" if payload else "builder_output",
-              "model": model, "elapsed_seconds": round(elapsed, 3), "pictures": pictures,
+def save_builder_log(fields, result, pictures, model, elapsed, responses, api_key, payload, error):
+    requests = [prompt_request_log(payload, "H3 fields")]
+    report = {"operation": "ai_rewrite", "model": model, "elapsed_seconds": round(elapsed, 3), "pictures": pictures,
               "source_fields": fields, "result_fields": result, "responses": responses,
               "requests": requests, "final_prompt": assemble_prompt(result) if result is not None else None,
               "error": f"{type(error).__name__}: {error}" if error else None,
@@ -220,10 +237,10 @@ def save_builder_log(fields, result, pictures, model, elapsed, responses, api_ke
             f"{prompt_trace_text(requests, responses)}")
     if error:
         text += f"\n\nError: {report['error']}"
-    return write_prompt_log(path or new_prompt_log_path("builder"), report, text, api_key)
+    return write_prompt_log(new_prompt_log_path("builder"), report, text, api_key)
 
 
-def rewrite_fields(fields, picture_count, config, image_paths=(), log_path=None, language="English"):
+def rewrite_fields(fields, picture_count, config, image_paths=(), language="English"):
     content, pictures = picture_content(image_paths)
     source = json.dumps({"pictures": [f"<Picture {i + 1}>" for i in range(picture_count)],
                          "fields": fields, "variation": config.get("variation", 0)}, ensure_ascii=False)
@@ -266,7 +283,7 @@ def rewrite_fields(fields, picture_count, config, image_paths=(), log_path=None,
         release_llm(config.get("local_llm", False), config.get("unload_url", ""))
         if config.get("log_prompts", True):
             save_builder_log(fields, result, pictures, payload["model"], time.monotonic() - started,
-                             responses, config.get("api_key", ""), payload, log_path, sys.exception() if result is None else None)
+                             responses, config.get("api_key", ""), payload, sys.exception() if result is None else None)
 
 
 class MiniMaxH3PromptBuilder(io.ComfyNode):
@@ -275,17 +292,15 @@ class MiniMaxH3PromptBuilder(io.ComfyNode):
         return io.Schema(
             node_id="MiniMaxH3LongVideoRefPromptBuilder", display_name="H3 Ref Prompt Builder",
             category="video/minimax", is_output_node=True,
-            description="Ref2VA six-field prompt and image editor. Works by manual editing; connect H3 Prompt API to use AI rewrite.",
+            description="Ref2VA prompt and reference image editor. Works by manual editing; connect H3 Prompt API to have AI turn the prompt into the six Ref2VA fields.",
             inputs=[
-                *[io.String.Input(name, default="N/A" if name == "non_diegetic_music" else "",
-                                  multiline=True, tooltip=label) for name, label in zip(FIELDS, LABELS)],
+                io.String.Input("prompt", default="", multiline=True,
+                                tooltip="Ref2VA prompt with the six field headings, or a plain description for AI rewrite."),
                 io.String.Input("pictures", default="[]"),
                 io.Int.Input("ai_request", default=0, min=0, max=0x7fffffff),
                 io.Custom("H3_PROMPT_API").Input("prompt_api", optional=True),
                 io.Boolean.Input("ai_read_images", default=True, optional=True,
                                  tooltip="AI reads compressed copies of the reference images. Requires a vision model; turn off to send text only."),
-                io.Boolean.Input("log_prompts", default=True, optional=True,
-                                 tooltip="Save the original, final prompt and AI requests/replies to output/h3_prompt_logs. The connected Prompt API must also enable log_prompts."),
                 io.Combo.Input("ai_language", options=list(SYSTEM_PROMPTS), default="English", optional=True,
                                tooltip="Description language of AI rewrites. English follows the official H3 Ref2VA format; dialogue always keeps its original language."),
             ],
@@ -301,28 +316,15 @@ class MiniMaxH3PromptBuilder(io.ComfyNode):
         return digest.hexdigest()
 
     @classmethod
-    def execute(cls, subject_definitions, summary, retention_analysis, detailed_description,
-                overall_soundscape, non_diegetic_music, pictures="[]", ai_request=0, prompt_api=None, ai_read_images=True,
-                log_prompts=True, ai_language="English"):
-        fields = dict(zip(FIELDS, (subject_definitions, summary, retention_analysis, detailed_description,
-                                  overall_soundscape, non_diegetic_music)))
+    def execute(cls, prompt, pictures="[]", ai_request=0, prompt_api=None, ai_read_images=True, ai_language="English"):
         paths = picture_paths(pictures)
-        log_enabled = log_prompts and (prompt_api or {}).get("log_prompts", True)
-        log_path = new_prompt_log_path("builder") if log_enabled else None
         if ai_request:
             if prompt_api is None:
                 raise ValueError("Connect H3 Prompt API before AI rewrite. Manual editing needs no LLM.")
-            fields = rewrite_fields(fields, len(paths), {**prompt_api, "log_prompts": log_enabled},
-                                    paths if ai_read_images else (), log_path=log_path, language=ai_language)
-        prompt = assemble_prompt(fields)
-        images = load_pictures(paths)
-        if log_enabled and not ai_request:
-            save_builder_log(fields, fields, [{"label": f"<Picture {i + 1}>", "path": str(path)} for i, path in enumerate(paths)],
-                             None, 0, [], (prompt_api or {}).get("api_key", ""), path=log_path)
-        return io.NodeOutput(prompt, images, ui={
-            "h3_fields": [fields], "h3_prompt": [prompt], "h3_ai_request": [ai_request],
-            "h3_log": [str(log_path.with_suffix(".txt"))] if log_path and log_path.with_suffix(".txt").is_file() else [],
-        })
+            # Long Video logs the prompt it receives; only the AI request writes its own log, per Prompt API log_prompts.
+            prompt = assemble_prompt(rewrite_fields(split_fields(prompt), len(paths), prompt_api,
+                                                    paths if ai_read_images else (), language=ai_language))
+        return io.NodeOutput(prompt, load_pictures(paths), ui={"h3_prompt": [prompt], "h3_ai_request": [ai_request]})
 
 
 NODE_CLASS_MAPPINGS = {"MiniMaxH3LongVideoRefPromptBuilder": MiniMaxH3PromptBuilder}

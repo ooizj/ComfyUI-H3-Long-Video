@@ -184,11 +184,11 @@ Pictures and a prompt in one node (`video/minimax`). Add, drop or paste pictures
 
 [![H3 Ref Prompt Builder example](docs/images/ref-prompt-builder.png)](docs/images/ref-prompt-builder.png)
 
-Edits reference pictures and the six Ref2VA prompt sections (`video/minimax`). Manual editing needs no API.
+Edits reference pictures, a description and the Ref2VA prompt (`video/minimax`). Manual editing needs no API.
 
 1. Add, drop or paste pictures; they become `<Picture 1>`, `<Picture 2>`, etc. Drag cards or use the arrows to reorder, and references in the text update. **换** replaces a picture and keeps its number.
-2. Fill the six fields. Click a thumbnail to insert a reference, or type `<Pic` / `<Sub` and complete with the arrow keys and Tab/Enter. Bind each `<Subject N>` to its source pictures explicitly; subject and picture numbers need not match.
-3. Connect `prompt` and `reference_images` to Long Video, check the preview and run.
+2. Write a plain description in **Description** and click **AI to H3 prompt**, or write the **H3 prompt** under the six field headings yourself (**Insert field headings** adds them). The description stays for later edits and reruns. Click a thumbnail to insert a reference, or type `<Pic` / `<Sub` and complete with the arrow keys and Tab/Enter. Bind each `<Subject N>` to its source pictures explicitly; subject and picture numbers need not match.
+3. Connect `prompt` and `reference_images` to Long Video and run. The editor shows where the timeline ends and warns when it differs from the connected Long Video's `total_seconds`.
 
 <details>
 <summary>The six fields</summary>
@@ -207,12 +207,11 @@ Use `[Shot 1]` for the opening and `[Shot 2] At 00:06.000, ...` for a cut at six
 </details>
 
 <details>
-<summary>Import, AI editing and languages</summary>
+<summary>AI editing and languages</summary>
 
-- **Import a full prompt:** **Split by headings** splits text by the six English field headings (Markdown headings or colons), without an API. Use **AI to six fields** for free-form text, or **Fill example** for an editable example.
-- **AI editing:** connect H3 Prompt API to Builder's `prompt_api`. Only **AI rewrite** and **AI to six fields** call the API; they queue prompt processing without starting video generation. Results refill the fields and can be edited or undone; if you edited the original while waiting, click **Apply AI result** to apply it.
+- **AI editing:** connect H3 Prompt API to Builder's `prompt_api`. Only **AI to H3 prompt** and **AI rewrite** call the API; they queue prompt processing without starting video generation. **AI to H3 prompt** writes the description as the six fields; **AI rewrite** reworks the H3 prompt field by field. The result replaces the H3 prompt; ComfyUI's undo/redo (Ctrl+Z / Ctrl+Y with the cursor outside the text boxes) steps through AI results, inserted headings and picture changes. If you edited the original while waiting, click **Apply AI result** to apply it.
 - **AI output language:** the English / 中文 switch, English by default (the official H3 Ref2VA format). Dialogue, lyrics and on-screen text keep their language. The choice is saved with the node and becomes the default for new nodes.
-- **AI reads reference images:** on by default; sends compressed JPEG copies (1024 px long edge) to a vision model. Turn it off for text-only models. Video generation uses the source pictures.
+- **Read images:** on by default; sends compressed JPEG copies (1024 px long edge) to a vision model. Turn it off for text-only models. Video generation uses the source pictures.
 - **Interface language:** editors, node descriptions and tooltips follow ComfyUI's language: Chinese for Chinese locales, English otherwise.
 
 </details>

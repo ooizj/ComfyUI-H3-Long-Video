@@ -184,11 +184,11 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 
 [![H3 Ref Prompt Builder 使用示例](docs/images/ref-prompt-builder.png)](docs/images/ref-prompt-builder.png)
 
-编辑参考图和 Ref2VA 六段提示词（`video/minimax` 分类），手动填写无需 API。
+编辑参考图、描述和 Ref2VA 提示词（`video/minimax` 分类），手动填写无需 API。
 
 1. 添加、拖入或粘贴参考图，顺序对应 `<Picture 1>`、`<Picture 2>` 等。拖动卡片或点击箭头排序时，正文中的编号同步更新；**换**用于替换图片并保留编号。
-2. 填写六个字段。点击缩略图插入引用，或输入 `<Pic` / `<Sub` 后用方向键、Tab / Enter 补全。`<Subject N>` 需明确绑定来源图片，不要求与图片编号相同。
-3. 把 `prompt` 和 `reference_images` 接到 Long Video，检查预览后运行。
+2. 在 **描述** 框写普通描述后点 **AI 生成 H3 提示词**，或直接在 **H3 提示词** 框按六段字段标题书写（**插入六段标题** 可补上标题）。描述会保留，方便修改后重新生成。点击缩略图插入引用，或输入 `<Pic` / `<Sub` 后用方向键、Tab / Enter 补全。`<Subject N>` 需明确绑定来源图片，不要求与图片编号相同。
+3. 把 `prompt` 和 `reference_images` 接到 Long Video 后运行。编辑器显示时间线写到第几秒，与所连 Long Video 的 `total_seconds` 不一致时给出提示。
 
 <details>
 <summary>六个字段</summary>
@@ -207,12 +207,11 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 </details>
 
 <details>
-<summary>导入、AI 整理与语言</summary>
+<summary>AI 整理与语言</summary>
 
-- **导入整段提示词：** **按标题拆分填入**按六个英文字段名拆分（支持 Markdown 标题和冒号），无需 API。普通描述用 **AI 转成六段**，或点 **填入示例** 后修改。
-- **AI 整理：** 把 H3 Prompt API 接到 Builder 的 `prompt_api`。只有 **AI 整理** 和 **AI 转成六段** 会请求 API，只排队处理提示词，不启动视频生成。结果回填后可继续修改或撤销；等待期间编辑过原文时，点 **应用 AI 结果** 才替换。
+- **AI 整理：** 把 H3 Prompt API 接到 Builder 的 `prompt_api`。只有 **AI 生成 H3 提示词** 和 **AI 整理** 会请求 API，只排队处理提示词，不启动视频生成。前者把描述写成六段，后者按段整理现有的 H3 提示词。结果替换 H3 提示词框的内容；用 ComfyUI 的撤销/重做（光标不在输入框时按 Ctrl+Z / Ctrl+Y）可逐步退回或恢复 AI 结果、插入的标题和图片操作。等待期间编辑过原文时，点 **应用 AI 结果** 才替换。
 - **AI 输出语言：** 用 English / 中文 按钮切换，默认 English（H3 官方 Ref2VA 格式）。台词、歌词和画面文字保留原语言。选择随节点保存，并作为新建节点的默认值。
-- **AI 识别参考图：** 默认开启，把图片压缩为最长边 1024px 的 JPEG 副本发送给视觉模型。纯文字模型请关闭。视频生成仍使用源图片。
+- **识图：** 默认开启，把图片压缩为最长边 1024px 的 JPEG 副本发送给视觉模型。纯文字模型请关闭。视频生成仍使用源图片。
 - **界面语言：** 编辑器、节点说明和 tooltip 跟随 ComfyUI 的语言设置：中文环境显示中文，其他语言显示英文。
 
 </details>
