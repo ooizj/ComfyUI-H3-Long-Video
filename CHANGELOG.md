@@ -10,6 +10,12 @@ layout. Each entry below says which of the two it works with.
 
 ## Unreleased
 
+- **H3 Ref Prompt Builder** node id is now
+  `MiniMaxH3LongVideoRefPromptBuilder`. The old id `MiniMaxH3PromptBuilder`
+  belongs to the Fantastic MiniMax H3 Prompt Builder pack, and having both
+  installed broke one of the two nodes. Workflows saved with the old id are
+  converted when opened in the ComfyUI editor; API-format prompts must change
+  `class_type` by hand.
 - New **Qwen Image 2.1 Prompt Builder** node (`video/minimax`): assembles
   Qwen Image 2.1 prompts for H3 pre-production images (character sheets,
   empty scene cards, product anchors, game menus, RGBA cutouts) from an

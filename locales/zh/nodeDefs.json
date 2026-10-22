@@ -189,7 +189,7 @@
       }
     }
   },
-  "MiniMaxH3PromptBuilder": {
+  "MiniMaxH3LongVideoRefPromptBuilder": {
     "description": "Ref2VA 六段提示词与图片编辑器。直接填写即可使用；连接 H3 Prompt API 后可点击 AI 整理。",
     "inputs": {
       "subject_definitions": { "tooltip": "主体定义" },

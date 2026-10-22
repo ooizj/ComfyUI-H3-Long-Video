@@ -273,7 +273,7 @@ class MiniMaxH3PromptBuilder(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="MiniMaxH3PromptBuilder", display_name="H3 Ref Prompt Builder",
+            node_id="MiniMaxH3LongVideoRefPromptBuilder", display_name="H3 Ref Prompt Builder",
             category="video/minimax", is_output_node=True,
             description="Ref2VA six-field prompt and image editor. Works by manual editing; connect H3 Prompt API to use AI rewrite.",
             inputs=[
@@ -325,5 +325,5 @@ class MiniMaxH3PromptBuilder(io.ComfyNode):
         })
 
 
-NODE_CLASS_MAPPINGS = {"MiniMaxH3PromptBuilder": MiniMaxH3PromptBuilder}
-NODE_DISPLAY_NAME_MAPPINGS = {"MiniMaxH3PromptBuilder": "H3 Ref Prompt Builder"}
+NODE_CLASS_MAPPINGS = {"MiniMaxH3LongVideoRefPromptBuilder": MiniMaxH3PromptBuilder}
+NODE_DISPLAY_NAME_MAPPINGS = {"MiniMaxH3LongVideoRefPromptBuilder": "H3 Ref Prompt Builder"}

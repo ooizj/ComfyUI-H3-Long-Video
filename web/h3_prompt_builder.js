@@ -519,8 +519,19 @@ function install(node) {
   restore();
 }
 
+const NODE_TYPE = "MiniMaxH3LongVideoRefPromptBuilder";
+// Up to 0.11.1 this node used the id MiniMaxH3PromptBuilder, which the Fantastic Prompt Builder pack also registers.
+// Only rename ours: its second output is reference_images, Fantastic's is picture_1.
+const OLD_NODE_TYPE = "MiniMaxH3PromptBuilder";
+
 app.registerExtension({
   name: "H3MotionContext.PromptBuilder",
-  nodeCreated(node) { if (node.comfyClass === "MiniMaxH3PromptBuilder") install(node); },
-  loadedGraphNode(node) { if (node.comfyClass === "MiniMaxH3PromptBuilder") { install(node); node.h3PromptBuilder.restore(); } },
+  beforeConfigureGraph(graph) {
+    const nodes = [graph.nodes, ...(graph.definitions?.subgraphs ?? []).map(subgraph => subgraph.nodes)].flat();
+    for (const node of nodes) {
+      if (node?.type === OLD_NODE_TYPE && node.outputs?.[1]?.name === "reference_images") node.type = NODE_TYPE;
+    }
+  },
+  nodeCreated(node) { if (node.comfyClass === NODE_TYPE) install(node); },
+  loadedGraphNode(node) { if (node.comfyClass === NODE_TYPE) { install(node); node.h3PromptBuilder.restore(); } },
 });
