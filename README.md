@@ -6,7 +6,7 @@ Generate MiniMax H3 videos of any length from one prompt and a total duration. B
 
 - **One prompt, any length**: the video is sampled in segments that continue each other's picture and sound, then joined at 24 fps.
 - **Continue any video**: from a saved latent at any point (exact, no re-encoding) or from a video file.
-- **Prompt editors**: H3 Image & Prompt with backups, H3 Ref Prompt Builder for the six Ref2VA sections, and Qwen Image 2.1 Prompt Builder for character sheets, scene cards and keyframes made before the video.
+- **Prompt editors**: H3 Image & Prompt with backups, H3 Ref Prompt Builder that turns a description into the six Ref2VA sections, and Qwen Image 2.1 Prompt Builder for character sheets, scene cards and keyframes made before the video.
 - **Cloud or local LLM** splits the story into segment prompts with the right timing.
 
 ## Install
@@ -22,20 +22,18 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 
 ## Quick start
 
-[![H3 Long Video (Simple) example](docs/images/long-video-connections.png)](docs/images/long-video-connections.png)
+[![H3 Long Video with H3 Ref Prompt Builder](docs/images/ref-prompt-builder.png)](docs/images/ref-prompt-builder.png)
 
-1. Open an example workflow and select your models and images:
-   - [H3 Long Video - Simple](example_workflows/H3%20Long%20Video%20-%20Simple.json): type the prompt directly; load the first frame and references with image nodes.
-   - [H3 Long Video - Ref Prompt Builder](example_workflows/H3%20Long%20Video%20-%20Ref%20Prompt%20Builder.json): manage references and the six prompt sections in the editor.
+1. Open the example workflow [H3 Long Video - Ref Prompt Builder](example_workflows/H3%20Long%20Video%20-%20Ref%20Prompt%20Builder.json) and select your models and reference pictures.
 2. Connect **H3 Prompt API** to `prompt_api` and enter your API key or local server. **Required when the video needs more than one segment**; see [Why split the prompt?](#why-split-the-prompt).
-3. Write the prompt for the whole video, set `total_seconds` and run. `VIDEO` goes to **Save Video**.
+3. Write a description in **H3 Ref Prompt Builder** and click **AI to H3 prompt**, or write the H3 prompt yourself. Set `total_seconds` to the video length and run. `VIDEO` goes to **Save Video**.
 
-The screenshot uses `total_seconds=14` and `segment_seconds=7`: the node works out the segments itself. Shorter segments use less VRAM per sampling pass but add encoding, decoding and continuation overhead, so they are not necessarily faster.
+The example makes an 8-second video in one segment (`segment_seconds=15`); for a longer `total_seconds` the node works out the segments itself. Shorter segments use less VRAM per sampling pass but add encoding, decoding and continuation overhead, so they are not necessarily faster.
 
 <details>
-<summary>Notes on the example workflows</summary>
+<summary>Notes on the example workflow</summary>
 
-The examples keep LoRA/attention settings inside their model subgraphs; adjust them to your installation. The Builder example includes a resolution selector; if you do not have it, set Long Video's `width` and `height` directly. API keys are cleared in the published files.
+The example keeps LoRA/attention settings inside its model subgraph; adjust them to your installation. It includes a resolution selector; if you do not have it, set Long Video's `width` and `height` directly. The API key is cleared in the published file.
 
 </details>
 
@@ -161,7 +159,7 @@ With `json_mode` on, requests to a local LLM carry a JSON schema, so llama.cpp, 
 <details>
 <summary>Prompt logs</summary>
 
-With `log_prompts` on, logs go to `output/h3_prompt_logs/` (TXT + JSON): `*_builder` records editor input/output, `*_planner` API planning, and `*_video` the final segment prompts and settings before sampling. Builder logging also needs its connected API's `log_prompts` on. `prepared` means ready for sampling only. The key mask hides the key on screen, not in the saved workflow: clear key fields before sharing workflows.
+With `log_prompts` on, logs go to `output/h3_prompt_logs/` (TXT + JSON): `*_builder` records Ref Prompt Builder AI requests, `*_planner` API planning, and `*_video` the final segment prompts and settings before sampling. `prepared` means ready for sampling only. The key mask hides the key on screen, not in the saved workflow: clear key fields before sharing workflows.
 
 </details>
 

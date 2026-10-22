@@ -28,6 +28,9 @@ layout. Each entry below says which of the two it works with.
   console instead of the editor.
 - `tests/` is no longer included in the registry package; it stays in the
   GitHub repository.
+- `example_workflows/` keeps only **H3 Long Video - Ref Prompt Builder**,
+  now an 8-second first-person tea scene. The Simple example and the older
+  Motion Context chain example were removed.
 
 ## 0.12.0 - 2026-10-22
 

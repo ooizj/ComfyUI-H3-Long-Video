@@ -6,7 +6,7 @@
 
 - **一份提示词，任意时长**：分段采样，每段接续上一段的画面和声音，最后以 24 fps 拼接。
 - **接续任意视频**：从保存的 latent 的任意位置精确接续（不重新编码），或从视频文件接续。
-- **提示词编辑器**：带备份的 H3 Image & Prompt，编辑 Ref2VA 六段提示词的 H3 Ref Prompt Builder，以及为视频前期生成角色设定卡、场景卡和首尾帧的 Qwen Image 2.1 Prompt Builder。
+- **提示词编辑器**：带备份的 H3 Image & Prompt，把描述写成 Ref2VA 六段提示词的 H3 Ref Prompt Builder，以及为视频前期生成角色设定卡、场景卡和首尾帧的 Qwen Image 2.1 Prompt Builder。
 - **云端或本地大模型**把剧情拆成时间正确的各段提示词。
 
 ## 安装
@@ -22,20 +22,18 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 
 ## 快速开始
 
-[![H3 Long Video (Simple) 使用示例](docs/images/long-video-connections.png)](docs/images/long-video-connections.png)
+[![H3 Long Video 搭配 H3 Ref Prompt Builder](docs/images/ref-prompt-builder.png)](docs/images/ref-prompt-builder.png)
 
-1. 打开示例工作流，选择本机的模型和图片：
-   - [H3 Long Video - Simple](example_workflows/H3%20Long%20Video%20-%20Simple.json)：直接填写提示词，用图片加载节点输入首帧和参考图。
-   - [H3 Long Video - Ref Prompt Builder](example_workflows/H3%20Long%20Video%20-%20Ref%20Prompt%20Builder.json)：在编辑器里管理参考图和六段提示词。
+1. 打开示例工作流 [H3 Long Video - Ref Prompt Builder](example_workflows/H3%20Long%20Video%20-%20Ref%20Prompt%20Builder.json)，选择本机的模型和参考图。
 2. 把 **H3 Prompt API** 接到 `prompt_api`，填写 API 密钥或本地服务地址。**视频需要多段时必须连接**，见[为什么要拆分提示词](#为什么要拆分提示词)。
-3. 填写整片提示词，设置 `total_seconds` 后运行，`VIDEO` 接 **Save Video**。
+3. 在 **H3 Ref Prompt Builder** 写好描述后点 **AI 生成 H3 提示词**，或自己写 H3 提示词。把 `total_seconds` 设为视频时长后运行，`VIDEO` 接 **Save Video**。
 
-图中 `total_seconds=14`、`segment_seconds=7`，段数由节点自动计算。较短的分段可降低单次采样显存，但会增加编码、解码和续接开销，不一定更快。
+示例生成一段 8 秒视频（`segment_seconds=15`，只有一段）；`total_seconds` 更长时，段数由节点自动计算。较短的分段可降低单次采样显存，但会增加编码、解码和续接开销，不一定更快。
 
 <details>
 <summary>示例工作流说明</summary>
 
-示例在模型子图中保留了 LoRA / 注意力设置，请按本机安装调整。Builder 示例包含分辨率选择器，未安装时直接设置 Long Video 的 `width` 和 `height`。发布文件中的 API 密钥已清空。
+示例在模型子图中保留了 LoRA / 注意力设置，请按本机安装调整。示例包含分辨率选择器，未安装时直接设置 Long Video 的 `width` 和 `height`。发布文件中的 API 密钥已清空。
 
 </details>
 
@@ -161,7 +159,7 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 <details>
 <summary>提示词日志</summary>
 
-启用 `log_prompts` 后，日志保存在 `output/h3_prompt_logs/`（TXT + JSON）：`*_builder` 是编辑器输入/输出，`*_planner` 是 API 规划记录，`*_video` 是采样前确定的各段提示词与设置。Builder 日志还需所连接 API 的 `log_prompts` 开启；`prepared` 仅表示准备采样。密钥遮罩只隐藏显示，不影响工作流中保存的值，分享工作流前请清空密钥字段。
+启用 `log_prompts` 后，日志保存在 `output/h3_prompt_logs/`（TXT + JSON）：`*_builder` 是 Ref Prompt Builder 的 AI 请求记录，`*_planner` 是 API 规划记录，`*_video` 是采样前确定的各段提示词与设置。`prepared` 仅表示准备采样。密钥遮罩只隐藏显示，不影响工作流中保存的值，分享工作流前请清空密钥字段。
 
 </details>
 
