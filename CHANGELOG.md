@@ -20,7 +20,8 @@ layout. Each entry below says which of the two it works with.
   Qwen Image 2.1 prompts for H3 pre-production images (character sheets,
   empty scene cards, product anchors, game menus, RGBA cutouts) from an
   asset type, style, shot size, camera angle and lighting.
-  The editor shows an example image for every option. Connect `width` and
+  The editor shows an example image for every option and, like the other
+  editors, follows ComfyUI's language (Chinese or English). Connect `width` and
   `height` from Resolution Selector; the prompt names the frame wide,
   vertical or square to match, and both values pass through to the outputs.
   No LLM is needed; for a short description, turn on `refine_prompt` in the

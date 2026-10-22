@@ -23,57 +23,57 @@ def orientation(width, height):
 
 STYLE_PRESETS = {
     "realistic_photo": (
-        "写实摄影 (Realistic Photograph)",
+        ("写实摄影", "Realistic Photograph"),
         "photorealistic high-definition",
         "natural surface micro-textures, authentic material grain, crisp structural details, and physically accurate light falloff",
     ),
     "cinematic_film": (
-        "电影级剧照 (Cinematic Film Still)",
+        ("电影级剧照", "Cinematic Film Still"),
         "cinematic anamorphic film-still",
         "rich cinematic color grading, subtle film grain, natural depth of field, and atmospheric spatial depth",
     ),
     "stylized_3d_pixar": (
-        "皮克斯/迪士尼3D动画 (Stylized 3D Animation)",
+        ("皮克斯/迪士尼3D动画", "Stylized 3D Animation"),
         "3D-rendered stylized animation",
         "appealing stylized proportions, tactile material shaders, soft global illumination, and physically based surfaces",
     ),
     "eastern_3d_fantasy": (
-        "国风半写实3D动画 (Eastern Semi-Realistic 3D)",
+        ("国风半写实3D动画", "Eastern Semi-Realistic 3D"),
         "semi-realistic 3D-rendered",
         "refined classical Eastern craftsmanship, flowing silk and carved wood textures, subtle metallic sheen, and soft atmospheric shading",
     ),
     "minimalist_product": (
-        "极简商业产品摄影 (Minimalist Commercial Studio)",
+        ("极简商业产品摄影", "Minimalist Commercial Studio"),
         "minimalist editorial commercial",
         "ultra-clean industrial design fidelity, crisp machined edges, controlled specular highlights, and zero-clutter negative space",
     ),
     "paper_collage": (
-        "复古网点纸拼贴 (Halftone Paper Collage)",
+        ("复古网点纸拼贴", "Halftone Paper Collage"),
         "handcrafted halftone cut-paper collage",
         "visible torn paper edges, vintage newspaper print textures, CMYK halftone dots, and subtle drop shadows between stacked paper layers",
     ),
     "papercraft_diorama": (
-        "立体折纸定格沙盘 (3D Papercraft Diorama)",
+        ("立体折纸定格沙盘", "3D Papercraft Diorama"),
         "tactile handmade papercraft diorama",
         "layered cardstock construction, crisp folded creases, matte craft-paper fiber texture, and miniature tabletop stop-motion staging",
     ),
     "handdrawn_live_mix": (
-        "实拍融合发光手绘涂鸦 (Glowing Sketch + Live Action)",
+        ("实拍融合发光手绘涂鸦", "Glowing Sketch + Live Action"),
         "hybrid live-action and rough glowing hand-drawn",
         "photorealistic real-world environment contrasted with rough, jittery, luminous neon chalk and colored-pencil sketch lines with visible stroke texture",
     ),
     "coop_game_art": (
-        "风格化游戏概念与UI (Stylized Game Concept & UI)",
+        ("风格化游戏概念与UI", "Stylized Game Concept & UI"),
         "stylized video-game key-art",
         "bold readable silhouettes, vibrant color separation, clean UI overlay hierarchy, and expressive game-ready rendering",
     ),
     "anime_cel": (
-        "二次元赛璐璐插画 (2D Anime Illustration)",
+        ("二次元赛璐璐插画", "2D Anime Illustration"),
         "clean 2D anime cel-shaded",
         "crisp linework, clean cel-shaded shadow planes, detailed background art, and harmonious color blocking",
     ),
     "watercolor_storybook": (
-        "手绘水彩绘本 (Watercolor & Colored Pencil)",
+        ("手绘水彩绘本", "Watercolor & Colored Pencil"),
         "hand-painted watercolor and colored-pencil",
         "cold-press cotton paper grain, translucent pigment washes, soft blooming edges, and delicate colored-pencil hatching",
     ),
@@ -82,46 +82,46 @@ STYLE_PRESETS = {
 # Qwen Image 2.1 draws whatever the description names, so a framing sentence describes what fills the frame;
 # a description that mentions trousers or shoes still turns a bust or waist-up shot into a full-length one.
 MEDIUM_SHOT_PRESETS = {
-    "auto_by_asset": ("自动 (按资产类型，不另加取景句)", "image", ""),
+    "auto_by_asset": (("自动 (按资产类型，不另加取景句)", "Auto (by asset type, no framing sentence)"), "image", ""),
     "bust_headroom": (
-        "胸像近景 (胸口以上)",
+        ("胸像近景 (胸口以上)", "Bust close-up (chest up)"),
         "chest-up portrait",
         "The subject is framed from the chest up: the head and shoulders fill most of the frame, the face is large and close to the camera, and the bottom edge of the frame crosses the upper chest, with a clear band of background above the hair.",
     ),
     "medium_waist": (
-        "半身中景 (腰部以上)",
+        ("半身中景 (腰部以上)", "Medium shot (waist up)"),
         "waist-up medium shot",
         "The subject is framed from the waist up: the head, shoulders, arms and torso fill the frame, and the bottom edge of the frame crosses the waist.",
     ),
     "full_body": (
-        "全身 (头到脚完整)",
+        ("全身 (头到脚完整)", "Full body (head to toe)"),
         "full-length shot",
         "The framing is a full-length shot showing the whole figure from the top of the head down to the shoes, with a little space above the head and below the feet.",
     ),
     "wide_establishing": (
-        "广角全景 (环境为主，人物较小)",
+        ("广角全景 (环境为主，人物较小)", "Wide establishing (surroundings first, small figure)"),
         "wide establishing shot",
         "The framing is a wide establishing shot: the surroundings fill most of the frame and any figure appears small within the scene.",
     ),
     "macro_closeup": (
-        "微距特写 (材质细节，适合产品/道具)",
+        ("微距特写 (材质细节，适合产品/道具)", "Macro close-up (surface detail, for products and props)"),
         "macro close-up",
         "The framing is an extreme close-up that fills the frame with fine surface detail and texture, cropping away everything around it.",
     ),
 }
 
 CAMERA_ANGLE_PRESETS = {
-    "eye_level": ("平视正拍 (Eye-Level Straight-On)", "captured at a straight-on eye-level camera angle"),
-    "three_quarter": ("微侧三分之四视角 (Three-Quarter Angle)", "captured from a balanced three-quarter camera angle"),
-    "side_profile": ("正侧面 (Side Profile)", "captured from directly beside the subject, showing the figure in a clean 90-degree side profile facing right"),
-    "from_behind": ("背后视角 (From Behind)", "captured from directly behind the subject, showing the back of the head and body, with the face not visible"),
-    "low_angle": ("低机位仰拍 (Low-Angle)", "captured from a low camera near knee height looking upward, so the figure rises above the viewer against the sky"),
-    "worms_eye": ("贴地极限仰拍 (Worm's-Eye View)", "captured from a worm's-eye view with the camera on the ground looking steeply upward, so the figure towers overhead with strong upward perspective"),
-    "high_angle": ("高机位俯拍 (High-Angle Look-Down)", "captured from an elevated high-angle perspective looking slightly downward"),
-    "birds_eye": ("高空鸟瞰 (Bird's-Eye Aerial)", "captured from a high aerial bird's-eye view far above the scene, looking down at a steep angle so the figure appears small within the scene below"),
-    "top_down": ("垂直俯拍平铺 (Top-Down Flat Lay)", "captured from a direct 90-degree overhead top-down perspective"),
-    "dutch_angle": ("倾斜构图 (Dutch Angle)", "captured with a tilted Dutch angle, the whole frame rotated about fifteen degrees so the horizon and vertical lines lean diagonally"),
-    "telephoto_dof": ("长焦浅景深 (Telephoto Shallow DOF)", "captured with a medium-telephoto lens with creamy shallow depth of field and soft background bokeh"),
+    "eye_level": (("平视正拍", "Eye-Level Straight-On"), "captured at a straight-on eye-level camera angle"),
+    "three_quarter": (("微侧三分之四视角", "Three-Quarter Angle"), "captured from a balanced three-quarter camera angle"),
+    "side_profile": (("正侧面", "Side Profile"), "captured from directly beside the subject, showing the figure in a clean 90-degree side profile facing right"),
+    "from_behind": (("背后视角", "From Behind"), "captured from directly behind the subject, showing the back of the head and body, with the face not visible"),
+    "low_angle": (("低机位仰拍", "Low-Angle"), "captured from a low camera near knee height looking upward, so the figure rises above the viewer against the sky"),
+    "worms_eye": (("贴地极限仰拍", "Worm's-Eye View"), "captured from a worm's-eye view with the camera on the ground looking steeply upward, so the figure towers overhead with strong upward perspective"),
+    "high_angle": (("高机位俯拍", "High-Angle Look-Down"), "captured from an elevated high-angle perspective looking slightly downward"),
+    "birds_eye": (("高空鸟瞰", "Bird's-Eye Aerial"), "captured from a high aerial bird's-eye view far above the scene, looking down at a steep angle so the figure appears small within the scene below"),
+    "top_down": (("垂直俯拍平铺", "Top-Down Flat Lay"), "captured from a direct 90-degree overhead top-down perspective"),
+    "dutch_angle": (("倾斜构图", "Dutch Angle"), "captured with a tilted Dutch angle, the whole frame rotated about fifteen degrees so the horizon and vertical lines lean diagonally"),
+    "telephoto_dof": (("长焦浅景深", "Telephoto Shallow DOF"), "captured with a medium-telephoto lens with creamy shallow depth of field and soft background bokeh"),
 }
 
 # An environment-only scene card must not mention a figure anywhere: the model draws what the prompt names.
@@ -136,38 +136,38 @@ PERSON_ONLY = ("bust_headroom", "medium_waist", "full_body", "side_profile", "fr
 
 LIGHTING_PRESETS = {
     "soft_window_left": (
-        "左侧柔和自然窗光 (Soft Diffused Window Light)",
+        ("左侧柔和自然窗光", "Soft Diffused Window Light"),
         "The lighting is soft, diffused natural daylight entering from the left side of the frame, casting gentle graduated shadows to the right and warm highlights across surfaces.",
     ),
     "studio_flat": (
-        "均匀无影棚拍光 - 适合四视图/设定卡 (Flat Even Studio Light)",
+        ("均匀无影棚拍光 - 适合四视图/设定卡", "Flat Even Studio Light - for 4-view and character sheets"),
         "The lighting is flat, even, shadowless studio illumination from the front, keeping every surface, colour, and detail clearly legible without dramatic contrast or colour cast.",
     ),
     "golden_hour": (
-        "夕阳暖金逆侧光 (Warm Golden-Hour Rim & Side Light)",
+        ("夕阳暖金逆侧光", "Warm Golden-Hour Rim & Side Light"),
         "The lighting is warm low-angle golden-hour sunlight from the upper right, creating luminous amber highlights and soft warm shadows.",
     ),
     "overcast_diffused": (
-        "阴天漫射柔光 - 适合室外/雨景 (Soft Overcast Daylight)",
+        ("阴天漫射柔光 - 适合室外/雨景", "Soft Overcast Daylight - for outdoor and rain scenes"),
         "The lighting is soft, even overcast sky light from above, producing subtle shadow transitions, damp surface reflections, and natural true-to-life tones.",
     ),
     "commercial_rim": (
-        "商业棚拍轮廓光 - 适合极简产品 (Commercial Rim & Key Light)",
+        ("商业棚拍轮廓光 - 适合极简产品", "Commercial Rim & Key Light - for minimalist products"),
         "The lighting is sculpted studio key light paired with crisp dual rim lights that trace the exact silhouette and material edges, casting a soft grounded contact shadow beneath the base.",
     ),
     "cyber_neon": (
-        "电影感霓虹冷暖对比光 (Cinematic Cyan & Warm Neon)",
+        ("电影感霓虹冷暖对比光", "Cinematic Cyan & Warm Neon"),
         "The lighting combines cool cyan ambient night light with warm amber and magenta neon reflections from the side, creating high-contrast specular highlights on damp surfaces.",
     ),
     "warm_lantern": (
-        "室内暖调灯笼/台灯氛围光 (Warm Indoor Lantern Glow)",
+        ("室内暖调灯笼/台灯氛围光", "Warm Indoor Lantern Glow"),
         "The lighting is warm amber tungsten and paper-lantern light radiating from within the room, casting soft inviting highlights and deep tranquil shadows in the far corners.",
     ),
 }
 
 ASSET_TYPES = {
     "none": {
-        "label": "📷 通用生图 (不套用特定版式)",
+        "label": ("📷 通用生图 (不套用特定版式)", "📷 General image (no fixed layout)"),
         "default_medium": "auto_by_asset",
         "default_lighting": "soft_window_left",
         "negative": (
@@ -176,7 +176,7 @@ ASSET_TYPES = {
         ),
     },
     "character_4view": {
-        "label": "👤 人物四视图设定卡 (Character 4-View Sheet · 供 H3 <Picture N> 角色锚定)",
+        "label": ("👤 人物四视图设定卡 (供 H3 <Picture N> 角色锚定)", "👤 Character 4-View Sheet (character anchor for H3 <Picture N>)"),
         "noun": "character reference sheet",
         "default_medium": "auto_by_asset",
         "default_lighting": "studio_flat",
@@ -187,7 +187,7 @@ ASSET_TYPES = {
         ),
     },
     "scene_empty_card": {
-        "label": "🏠 无人物纯场景空镜卡 (Environment-Only Scene Card · 供 H3 场景锚定)",
+        "label": ("🏠 无人物纯场景空镜卡 (供 H3 场景锚定)", "🏠 Environment-Only Scene Card (scene anchor for H3)"),
         "default_medium": "wide_establishing",
         "default_lighting": "soft_window_left",
         "negative": (
@@ -196,7 +196,7 @@ ASSET_TYPES = {
         ),
     },
     "character_3view_card": {
-        "label": "🧒 3D动画带名牌角色三视图卡 (3D Character Card · 左胸像+右正侧背三视图)",
+        "label": ("🧒 3D动画带名牌角色三视图卡 (左胸像+右正侧背三视图)", "🧒 3D Character Card (bust on the left, front/side/back views on the right)"),
         "noun": "character design sheet",
         "default_medium": "auto_by_asset",
         "default_lighting": "studio_flat",
@@ -206,7 +206,7 @@ ASSET_TYPES = {
         ),
     },
     "product_anchor": {
-        "label": "💎 极简商业产品锚点图 (Minimalist Product Anchor · 主视觉/微距材质/英文标题)",
+        "label": ("💎 极简商业产品锚点图 (主视觉/微距材质/英文标题)", "💎 Minimalist Product Anchor (key visual, macro texture, English title)"),
         "default_medium": "macro_closeup",
         "default_lighting": "commercial_rim",
         "negative": (
@@ -215,7 +215,7 @@ ASSET_TYPES = {
         ),
     },
     "coop_game_menu": {
-        "label": "🎮 双人合作游戏开场菜单图 (Co-op Game Menu · 左右双角色+1P/2P状态卡+中央UI)",
+        "label": ("🎮 双人合作游戏开场菜单图 (左右双角色+1P/2P状态卡+中央UI)", "🎮 Co-op Game Menu (two characters, 1P/2P status cards, centre UI)"),
         "noun": "video game menu screen",
         "default_medium": "auto_by_asset",
         "default_lighting": "cyber_neon",
@@ -225,7 +225,7 @@ ASSET_TYPES = {
         ),
     },
     "rgba_cutout_asset": {
-        "label": "🔲 RGBA 透明背景独立资产 (Transparent Cutout Prop/Character · Alpha 通道抠图)",
+        "label": ("🔲 RGBA 透明背景独立资产 (Alpha 通道抠图)", "🔲 RGBA Transparent Cutout (prop or character with alpha channel)"),
         "default_medium": "full_body",
         "default_lighting": "studio_flat",
         "negative": (
@@ -397,22 +397,22 @@ class QwenImage21VideoPrompt(cio.ComfyNode):
                     "asset_type",
                     options=list(ASSET_TYPES.keys()),
                     default="character_4view",
-                    tooltip="明确选择你要生成的图片资产类型（选什么就严格执行什么规则）。",
+                    tooltip="Image asset type; each type applies its own layout rules.",
                 ),
-                cio.Int.Input("width", force_input=True, tooltip="接「分辨率选择器」的 width，并从 width 输出原样传给出图流程。宽大于高时提示词写横图。"),
-                cio.Int.Input("height", force_input=True, tooltip="接「分辨率选择器」的 height。高大于宽时提示词写竖图，相等时写方图。"),
+                cio.Int.Input("width", force_input=True, tooltip="width from Resolution Selector, passed unchanged to the width output. The prompt names the frame wide when width is larger."),
+                cio.Int.Input("height", force_input=True, tooltip="height from Resolution Selector. The prompt names the frame vertical when height is larger, square when equal."),
                 cio.Combo.Input(
                     "style_preset",
                     options=list(STYLE_PRESETS.keys()),
                     default="realistic_photo",
-                    tooltip="画面视觉风格（写实摄影、电影剧照、皮克斯3D、国风3D、极简产品、纸拼贴、折纸沙盘等）。",
+                    tooltip="Visual style (photograph, film still, stylized 3D, Eastern 3D, product, paper collage, papercraft and more).",
                 ),
-                cio.Combo.Input("medium_shot", options=list(MEDIUM_SHOT_PRESETS.keys()), default="auto_by_asset", tooltip="景别。胸像/半身时，描述里不要写裤子、鞋子等画面外的东西，否则会画成全身。"),
-                cio.Combo.Input("camera_angle", options=list(CAMERA_ANGLE_PRESETS.keys()), default="eye_level", tooltip="镜头机位视角。"),
-                cio.Combo.Input("lighting_preset", options=list(LIGHTING_PRESETS.keys()), default="studio_flat", tooltip="独立光影句预设。"),
-                cio.String.Input("subject", default="", multiline=True, placeholder="在这里输入你要生成的人物或场景描述"),
-                cio.Boolean.Input("manual_prompt", default=False, tooltip="开启时直接输出 final_prompt（在预览框手动修改后自动开启）。"),
-                cio.String.Input("final_prompt", default="", multiline=True, placeholder="提示词预览/手动微调框"),
+                cio.Combo.Input("medium_shot", options=list(MEDIUM_SHOT_PRESETS.keys()), default="auto_by_asset", tooltip="Shot size. For a bust or waist-up shot, leave trousers and shoes out of the description, or the image comes out full-length."),
+                cio.Combo.Input("camera_angle", options=list(CAMERA_ANGLE_PRESETS.keys()), default="eye_level", tooltip="Camera angle."),
+                cio.Combo.Input("lighting_preset", options=list(LIGHTING_PRESETS.keys()), default="studio_flat", tooltip="Lighting sentence preset."),
+                cio.String.Input("subject", default="", multiline=True, placeholder="Describe the person or scene to generate"),
+                cio.Boolean.Input("manual_prompt", default=False, tooltip="Output final_prompt as-is. Turned on automatically when the preview is edited by hand."),
+                cio.String.Input("final_prompt", default="", multiline=True, placeholder="Prompt preview; edit to adjust by hand"),
             ],
             outputs=[
                 cio.String.Output(display_name="prompt"),

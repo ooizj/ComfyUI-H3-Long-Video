@@ -232,5 +232,18 @@
         "tooltip": "该运行保存的视频，从开头截到接续点。用 Concatenate Video 与 Long Video 的 VIDEO 拼接。如果该运行本身是接续别的视频生成的，不包含那段视频。"
       }
     }
+  },
+  "QwenImage21VideoPrompt": {
+    "description": "为 MiniMax H3 视频前期生成 Qwen Image 2.1 提示词（人物四视图、3D 角色卡、无人物场景卡、产品锚点图、RGBA 抠图）。描述简短时，在 Qwen Image 2.1 流程中开启 refine_prompt。",
+    "inputs": {
+      "asset_type": { "tooltip": "明确选择你要生成的图片资产类型（选什么就严格执行什么规则）。" },
+      "width": { "tooltip": "接「分辨率选择器」的 width，并从 width 输出原样传给出图流程。宽大于高时提示词写横图。" },
+      "height": { "tooltip": "接「分辨率选择器」的 height。高大于宽时提示词写竖图，相等时写方图。" },
+      "style_preset": { "tooltip": "画面视觉风格（写实摄影、电影剧照、皮克斯3D、国风3D、极简产品、纸拼贴、折纸沙盘等）。" },
+      "medium_shot": { "tooltip": "景别。胸像/半身时，描述里不要写裤子、鞋子等画面外的东西，否则会画成全身。" },
+      "camera_angle": { "tooltip": "镜头机位视角。" },
+      "lighting_preset": { "tooltip": "独立光影句预设。" },
+      "manual_prompt": { "tooltip": "开启时直接输出 final_prompt（在预览框手动修改后自动开启）。" }
+    }
   }
 }

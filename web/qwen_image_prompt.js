@@ -1,5 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { localizer, t } from "./h3_i18n.js";
 
 const css = document.createElement("style");
 css.textContent = `
@@ -53,6 +54,9 @@ function exampleUrl(group, key) {
 function shortLabel(label) {
   return String(label).split(" (")[0];
 }
+
+// Catalog labels are [zh, en] pairs.
+const optionLabel = (opt, key) => (opt ? t(...opt.label) : key);
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -124,22 +128,22 @@ function createPickers(root) {
 
   function renderGallery(picker) {
     const head = el("div", "q21vp-gallery-head");
-    const closeBtn = el("button", "", "收起");
+    const closeBtn = el("button", "", t("收起", "Close"));
     closeBtn.type = "button";
     closeBtn.onclick = closeGallery;
-    head.append(el("span", "", `${picker.title} · 点图选择`), el("small", "", picker.note), closeBtn);
+    head.append(el("span", "", `${t(...picker.title)} · ${t("点图选择", "click an image to pick")}`), el("small", "", t(...picker.note)), closeBtn);
     const grid = el("div", "q21vp-gallery-grid");
     for (const [key, opt] of Object.entries(picker.options)) {
       const card = el("button", "q21vp-card");
       card.type = "button";
-      card.title = opt.label;
+      card.title = optionLabel(opt, key);
       card.classList.toggle("is-selected", key === picker.value);
       const img = el("img");
       img.alt = "";
       img.loading = "lazy";
       img.src = exampleUrl(picker.group, key);
-      img.onerror = () => img.replaceWith(el("div", "q21vp-card-noimg", "无示例"));
-      card.append(img, el("span", "", shortLabel(opt.label)));
+      img.onerror = () => img.replaceWith(el("div", "q21vp-card-noimg", t("无示例", "No example")));
+      card.append(img, el("span", "", shortLabel(optionLabel(opt, key))));
       card.onclick = () => {
         picker.value = key;
         closeGallery();
@@ -167,7 +171,7 @@ function createPickers(root) {
       get value() { return current; },
       set value(v) {
         current = v;
-        const label = picker.options[v]?.label ?? v;
+        const label = optionLabel(picker.options[v], v);
         text.textContent = shortLabel(label);
         trigger.title = label;
         thumb.style.visibility = "";
@@ -186,26 +190,30 @@ function createPickers(root) {
   root.addEventListener("keydown", e => {
     if (e.key === "Escape" && openPicker) closeGallery();
   });
-  return { makePicker };
+  function relabel() {
+    for (const p of pickers) p.value = p.value;
+    if (openPicker) renderGallery(openPicker);
+  }
+  return { makePicker, relabel };
 }
 
-function field(label, control) {
+function field(i18n, label, control) {
   const f = el("div", "q21vp-field");
-  f.append(el("div", "q21vp-label", label), control);
+  f.append(i18n.set(el("div", "q21vp-label"), ...label), control);
   return f;
 }
 
 // Preview box: shows the assembled prompt; a manual edit is output as-is until the user unlocks it.
-function createPreview(widgets, title, onRefresh) {
+function createPreview(widgets, i18n, title, onRefresh) {
   const sec = el("div", "q21vp-sec");
   const header = el("div", "q21vp-sec-title");
   const titleSpan = el("span", "", "");
   const actions = el("div", "q21vp-preview-actions");
-  const wordCount = el("small", "", "0 words");
-  const unlockBtn = el("button", "", "🔄 恢复自动生成");
+  const wordCount = el("small", "", "");
+  const unlockBtn = i18n.set(el("button"), "🔄 恢复自动生成", "🔄 Back to automatic");
   unlockBtn.type = "button";
   unlockBtn.hidden = true;
-  const copyBtn = el("button", "", "📋 复制");
+  const copyBtn = i18n.set(el("button"), "📋 复制", "📋 Copy");
   copyBtn.type = "button";
   actions.append(wordCount, unlockBtn, copyBtn);
   header.append(titleSpan, actions);
@@ -223,7 +231,9 @@ function createPreview(widgets, title, onRefresh) {
     updateLockUI() {
       const manual = preview.isManual();
       unlockBtn.hidden = !manual;
-      titleSpan.textContent = manual ? `📤 ${title}：当前使用你手动修改的版本 (已锁定)` : `📤 ${title} (可直接微调)`;
+      titleSpan.textContent = manual
+        ? t(`📤 ${title[0]}：当前使用你手动修改的版本 (已锁定)`, `📤 ${title[1]}: using your hand-edited version (locked)`)
+        : t(`📤 ${title[0]} (可直接微调)`, `📤 ${title[1]} (edit to adjust)`);
     },
     setManual(on) {
       if (widgets.manual_prompt) widgets.manual_prompt.value = on;
@@ -234,7 +244,8 @@ function createPreview(widgets, title, onRefresh) {
         txt.value = text || "";
         if (widgets.final_prompt) widgets.final_prompt.value = txt.value;
       }
-      wordCount.textContent = `${txt.value.trim().split(/\s+/).filter(Boolean).length} words`;
+      const words = txt.value.trim().split(/\s+/).filter(Boolean).length;
+      wordCount.textContent = t(`${words} 词`, `${words} words`);
     },
     restore() {
       txt.value = widgets.final_prompt?.value ?? "";
@@ -242,7 +253,8 @@ function createPreview(widgets, title, onRefresh) {
     },
     warnIfManual() {
       if (preview.isManual()) {
-        preview.setStatus("⚠️ 当前使用你手动修改的版本，修改的选项不会生效；点击「🔄 恢复自动生成」放弃手动修改。", true);
+        preview.setStatus(t("⚠️ 当前使用你手动修改的版本，修改的选项不会生效；点击「🔄 恢复自动生成」放弃手动修改。",
+          "⚠️ Your hand-edited version is in use, so option changes have no effect. Click \"🔄 Back to automatic\" to discard the edit."), true);
       }
     },
   };
@@ -250,20 +262,20 @@ function createPreview(widgets, title, onRefresh) {
   unlockBtn.onclick = () => {
     preview.setManual(false);
     onRefresh();
-    preview.setStatus("已恢复为自动生成模式。");
+    preview.setStatus(t("已恢复为自动生成模式。", "Back to automatic prompt."));
   };
   txt.addEventListener("input", () => {
     if (widgets.final_prompt) widgets.final_prompt.value = txt.value;
     preview.setManual(Boolean(txt.value.trim()));
-    if (preview.isManual()) preview.setStatus("✍️ 已保存你的手动修改，运行时将直接使用编辑框中的内容。");
+    if (preview.isManual()) preview.setStatus(t("✍️ 已保存你的手动修改，运行时将直接使用编辑框中的内容。", "✍️ Your edit is saved; the run uses the text in this box as-is."));
     else onRefresh();
   });
   copyBtn.onclick = async () => {
     try {
       await navigator.clipboard.writeText(txt.value || "");
-      preview.setStatus("✅ 已复制到剪贴板。");
+      preview.setStatus(t("✅ 已复制到剪贴板。", "✅ Copied to the clipboard."));
     } catch {
-      preview.setStatus("复制失败，请手动全选复制。", true);
+      preview.setStatus(t("复制失败，请手动全选复制。", "Copy failed; select the text and copy it by hand."), true);
     }
   };
   return preview;
@@ -283,62 +295,78 @@ function installQwen21Builder(node) {
     "asset_type", "style_preset", "medium_shot", "camera_angle", "lighting_preset", "subject", "manual_prompt", "final_prompt",
   ]);
 
+  let catalog = null;
+  let lastSizeKey = "";
+  const schedule = debounce(() => runAssemble(), 120);
+  const i18n = localizer(() => { relabel(); preview.updateLockUI(); schedule(); });
+
   const header = el("div", "q21vp-header");
   const titleWrap = el("div", "q21vp-title");
   titleWrap.append(el("span", "", "🎬 Qwen Image 2.1 Prompt Builder"));
-  const sizeBadge = el("span", "q21vp-badge", "宽高未连接");
-  sizeBadge.title = "width / height 接「分辨率选择器」，提示词按宽高写横图、竖图或方图";
+  const sizeBadge = el("span", "q21vp-badge", t("宽高未连接", "Size not linked"));
+  i18n.set(sizeBadge, "width / height 接「分辨率选择器」，提示词按宽高写横图、竖图或方图",
+    "Link width / height from Resolution Selector; the prompt names the frame wide, vertical or square to match", "title");
   titleWrap.append(sizeBadge);
   header.append(titleWrap);
   root.append(header);
 
-  // 第一步：人物或场景描述
+  // Step 1: person or scene description
   const heroSec = el("div", "q21vp-hero-sec");
   const heroTitle = el("div", "q21vp-hero-title");
-  heroTitle.append(el("span", "", "✏️ 第一步：输入你要生成的人物或场景描述"));
-  const clearInputBtn = el("button", "", "🗑️ 清空");
+  heroTitle.append(i18n.set(el("span"), "✏️ 第一步：输入你要生成的人物或场景描述", "✏️ Step 1: describe the person or scene to generate"));
+  const clearInputBtn = i18n.set(el("button"), "🗑️ 清空", "🗑️ Clear");
   clearInputBtn.type = "button";
   heroTitle.append(clearInputBtn);
-  const txtSubject = el("textarea", "q21vp-hero-input");
-  txtSubject.placeholder =
+  const txtSubject = i18n.set(el("textarea", "q21vp-hero-input"),
     "在这里输入描述（然后在下方【第二步】选择对应的资产类型）：\n" +
     "• 人物设定卡：写人物年龄、发型、五官、上衣、下装、鞋子（如：一个亚洲女性，高马尾，穿米白色针织开衫与深蓝牛仔裤）\n" +
     "• 纯场景空镜：写环境与家具陈设（如：温馨的现代极简客厅，浅橡木地板，米白布艺沙发与落地窗阳光）\n" +
-    "• 视频关键帧：写角色动作、所处环境与镜头感（选胸像/半身时不要写裤子和鞋）";
+    "• 视频关键帧：写角色动作、所处环境与镜头感（选胸像/半身时不要写裤子和鞋）",
+    "Write the description here, then pick the matching asset type in Step 2 below:\n" +
+    "• Character sheet: age, hairstyle, face, top, bottoms and shoes (e.g. an Asian woman with a high ponytail, cream knit cardigan and dark blue jeans)\n" +
+    "• Empty scene card: the setting and furniture (e.g. a cosy minimalist living room, light oak floor, cream fabric sofa, sunlight through tall windows)\n" +
+    "• Video keyframe: the character's action, surroundings and camera feel (for a bust or waist-up shot, leave out trousers and shoes)",
+    "placeholder");
   heroSec.append(heroTitle, txtSubject);
   root.append(heroSec);
 
-  // 第二步：资产类型与风格
+  // Step 2: asset type and style
   const secPreset = el("div", "q21vp-sec");
-  secPreset.append(el("div", "q21vp-sec-title", "🎯 第二步：选择图片类型与视觉风格（点按钮看示例图）"));
-  const { makePicker } = createPickers(root);
-  const note = "示例图：同一 seed、同一段描述，只改这一项";
-  const selAsset = makePicker("asset_type", "① 视频图片资产类型", note);
-  const selStyle = makePicker("style_preset", "② 画面视觉风格", note);
-  const selMedium = makePicker("medium_shot", "③ 景别", note);
-  const selAngle = makePicker("camera_angle", "④ 摄影机位视角", note);
-  const selLight = makePicker("lighting_preset", "⑤ 光影氛围预设", note);
+  secPreset.append(i18n.set(el("div", "q21vp-sec-title"), "🎯 第二步：选择图片类型与视觉风格（点按钮看示例图）", "🎯 Step 2: pick the image type and visual style (click a button to see examples)"));
+  const { makePicker, relabel } = createPickers(root);
+  const note = ["示例图：同一 seed、同一段描述，只改这一项", "Examples: same seed and description, only this option changes"];
+  const labels = {
+    asset: ["① 视频图片资产类型", "① Asset type"],
+    style: ["② 画面视觉风格", "② Visual style"],
+    medium: ["③ 景别", "③ Shot size"],
+    angle: ["④ 摄影机位视角", "④ Camera angle"],
+    light: ["⑤ 光影氛围预设", "⑤ Lighting"],
+  };
+  const selAsset = makePicker("asset_type", labels.asset, note);
+  const selStyle = makePicker("style_preset", labels.style, note);
+  const selMedium = makePicker("medium_shot", labels.medium, note);
+  const selAngle = makePicker("camera_angle", labels.angle, note);
+  const selLight = makePicker("lighting_preset", labels.light, note);
   for (const pair of [
-    [field("① 视频图片资产类型", selAsset.el), field("② 画面视觉风格", selStyle.el)],
-    [field("③ 景别", selMedium.el), field("④ 摄影机位视角", selAngle.el)],
-    [field("⑤ 光影氛围预设", selLight.el)],
+    [field(i18n, labels.asset, selAsset.el), field(i18n, labels.style, selStyle.el)],
+    [field(i18n, labels.medium, selMedium.el), field(i18n, labels.angle, selAngle.el)],
+    [field(i18n, labels.light, selLight.el)],
   ]) {
     const row = el("div", "q21vp-grid2");
     row.append(...pair);
     secPreset.append(row);
   }
-  const mediumHint = el("div", "q21vp-hint", "💡 胸像/半身：描述里不要写裤子、鞋子等画面外的东西，否则模型会画成全身。");
+  const mediumHint = i18n.set(el("div", "q21vp-hint"), "💡 胸像/半身：描述里不要写裤子、鞋子等画面外的东西，否则模型会画成全身。",
+    "💡 Bust or waist-up: leave trousers, shoes and anything else outside the frame out of the description, or the model draws a full-length figure.");
   mediumHint.hidden = true;
   secPreset.append(mediumHint);
   root.append(secPreset);
 
-  // 第三步：提示词预览与微调
-  let catalog = null;
-  let lastSizeKey = "";
-  const schedule = debounce(() => runAssemble(), 120);
-  const preview = createPreview(widgets, "第三步：生成的提示词", () => schedule());
-  preview.sec.append(el("div", "q21vp-hint", "💡 描述写得简短时，可在官方 Qwen Image 2.1 流程中开启 refine_prompt，由官方扩写模型补全画面细节。"));
-  const negLabel = el("div", "q21vp-label", "Negative Prompt（negative_prompt 输出；cfg 为 1 时不生效）");
+  // Step 3: prompt preview and manual edits
+  const preview = createPreview(widgets, i18n, ["第三步：生成的提示词", "Step 3: generated prompt"], () => schedule());
+  preview.sec.append(i18n.set(el("div", "q21vp-hint"), "💡 描述写得简短时，可在官方 Qwen Image 2.1 流程中开启 refine_prompt，由官方扩写模型补全画面细节。",
+    "💡 For a short description, turn on refine_prompt in the official Qwen Image 2.1 workflow to let its rewrite model fill in the details."));
+  const negLabel = i18n.set(el("div", "q21vp-label"), "Negative Prompt（negative_prompt 输出；cfg 为 1 时不生效）", "Negative prompt (negative_prompt output; no effect at cfg 1)");
   negLabel.style.marginTop = "8px";
   const txtNegPreview = el("textarea");
   txtNegPreview.readOnly = true;
@@ -397,7 +425,7 @@ function installQwen21Builder(node) {
 
   async function runAssemble() {
     const size = linkedSize();
-    sizeBadge.textContent = size ? `${size[0]} × ${size[1]}` : "宽高未连接";
+    sizeBadge.textContent = size ? `${size[0]} × ${size[1]}` : t("宽高未连接", "Size not linked");
     try {
       const data = await postJson("/h3_motion_context/qwen21_assemble", {
         asset_type: selAsset.value,
@@ -412,7 +440,7 @@ function installQwen21Builder(node) {
       txtNegPreview.value = data.negative_prompt || "";
       preview.show(data.prompt);
     } catch (err) {
-      preview.setStatus(`同步参数出错: ${err.message}`, true);
+      preview.setStatus(t(`同步参数出错: ${err.message}`, `Could not update the prompt: ${err.message}`), true);
     }
   }
 
@@ -446,7 +474,7 @@ function installQwen21Builder(node) {
     preview.setManual(false);
     schedule();
     txtSubject.focus();
-    preview.setStatus("已清空输入内容。");
+    preview.setStatus(t("已清空输入内容。", "Description cleared."));
   };
 
   function restoreFromWidgets() {
@@ -480,6 +508,11 @@ function installQwen21Builder(node) {
   node.onConfigure = function (...args) {
     oldConfigure?.apply(this, args);
     restoreFromWidgets();
+  };
+  const oldRemoved = node.onRemoved;
+  node.onRemoved = function (...args) {
+    i18n.dispose();
+    oldRemoved?.apply(this, args);
   };
 
   node.addDOMWidget("qwen21_video_prompt_ui", "custom", root, {
