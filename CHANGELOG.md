@@ -8,7 +8,9 @@ rejected any keyframe anchor other than the first or last frame. That
 landed in ComfyUI 0.34.0. Every release through 0.33.4 has the older
 layout. Each entry below says which of the two it works with.
 
-## Unreleased
+## 0.13.0 - 2026-10-22
+
+Requires ComfyUI 0.36.0 or newer. Restart ComfyUI after updating.
 
 - **H3 Ref Prompt Builder** has two text boxes instead of seven: a
   description, which keeps the old import text, and the H3 prompt, which
