@@ -520,8 +520,8 @@ function install(node) {
 }
 
 const NODE_TYPE = "MiniMaxH3LongVideoRefPromptBuilder";
-// Up to 0.11.1 this node used the id MiniMaxH3PromptBuilder, which the Fantastic Prompt Builder pack also registers.
-// Only rename ours: its second output is reference_images, Fantastic's is picture_1.
+// Up to 0.11.1 this node used the id MiniMaxH3PromptBuilder, which another node pack also registers.
+// Only rename ours: its second output is reference_images, the other pack's is picture_1.
 const OLD_NODE_TYPE = "MiniMaxH3PromptBuilder";
 
 app.registerExtension({

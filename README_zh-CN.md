@@ -217,4 +217,17 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 
 </details>
 
+## Qwen Image 2.1 Prompt Builder
+
+[![Qwen Image 2.1 Prompt Builder 使用示例](docs/images/qwen-image-prompt-builder.png)](docs/images/qwen-image-prompt-builder.png)
+
+为视频前期要用的图片生成 Qwen Image 2.1 提示词：角色设定卡、无人物场景卡、产品锚点图、游戏菜单图、RGBA 抠图和关键帧（`video/minimax` 分类），无需大模型。
+
+1. 把「分辨率选择器」的 `width` 和 `height` 接到节点。提示词按宽高写横图、竖图或方图，两个值原样从输出传出。
+2. 填写人物或场景描述，再选择资产类型、风格、景别、机位和光影。点选项按钮可查看示例图。
+3. 把 `prompt`、`negative_prompt`、`width`、`height` 接到官方 Qwen Image 2.1 流程。可直接修改预览框里的提示词，修改会一直保留，直到点 **恢复自动生成**。
+
+- 胸像或半身时，描述里不要写裤子和鞋子，否则会画成全身。
+- 描述较短时，在 Qwen Image 2.1 流程中开启 `refine_prompt`。cfg 为 1 时 `negative_prompt` 不生效。
+
 [GPL-3.0 许可证](LICENSE)

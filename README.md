@@ -217,4 +217,17 @@ Use `[Shot 1]` for the opening and `[Shot 2] At 00:06.000, ...` for a cut at six
 
 </details>
 
+## Qwen Image 2.1 Prompt Builder
+
+[![Qwen Image 2.1 Prompt Builder example](docs/images/qwen-image-prompt-builder.png)](docs/images/qwen-image-prompt-builder.png)
+
+Writes Qwen Image 2.1 prompts for the pictures made before the video: character sheets, empty scene cards, product anchors, game menus, RGBA cutouts and keyframes (`video/minimax`). No LLM is needed.
+
+1. Connect `width` and `height` from Resolution Selector. The prompt names the frame wide, vertical or square to match, and both values pass through to the outputs.
+2. Describe the person or scene, then pick the asset type, style, shot size, camera angle and lighting. Click an option to see example images.
+3. Connect `prompt`, `negative_prompt`, `width` and `height` to the official Qwen Image 2.1 workflow. Edit the preview to adjust the prompt by hand; the edit is kept until you click **Back to automatic**.
+
+- For a bust or waist-up shot, leave trousers and shoes out of the description, or the image comes out full-length.
+- For a short description, turn on `refine_prompt` in the Qwen Image 2.1 workflow. `negative_prompt` has no effect at cfg 1.
+
 [GPL-3.0 license](LICENSE)
