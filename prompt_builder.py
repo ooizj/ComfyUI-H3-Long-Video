@@ -206,6 +206,15 @@ def spoken_words(text):
     return "".join(c for c in text.casefold() if c.isalnum())
 
 
+def jpeg_url(rgb):
+    """Compressed data URL for vision models; shrinks rgb in place to fit 1024 px."""
+    rgb.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+    buffer = BytesIO()
+    rgb.save(buffer, format="JPEG", quality=85)
+    jpeg = buffer.getvalue()
+    return "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii"), len(jpeg)
+
+
 def picture_content(paths):
     content, metadata = [], []
     for index, path in enumerate(paths):
@@ -213,15 +222,12 @@ def picture_content(paths):
         with Image.open(path) as source:
             rgb = ImageOps.exif_transpose(source).convert("RGB")
             original_size = rgb.size
-            rgb.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
-            buffer = BytesIO()
-            rgb.save(buffer, format="JPEG", quality=85)
-        jpeg = buffer.getvalue()
+            url, jpeg_bytes = jpeg_url(rgb)
         content.extend([
             {"type": "text", "text": label},
-            {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")}},
+            {"type": "image_url", "image_url": {"url": url}},
         ])
-        metadata.append({"label": label, "path": str(path), "original_size": original_size, "sent_size": rgb.size, "jpeg_bytes": len(jpeg)})
+        metadata.append({"label": label, "path": str(path), "original_size": original_size, "sent_size": rgb.size, "jpeg_bytes": jpeg_bytes})
     return content, metadata
 
 

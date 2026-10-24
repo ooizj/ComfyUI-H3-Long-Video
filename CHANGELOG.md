@@ -10,6 +10,10 @@ layout. Each entry below says which of the two it works with.
 
 ## Unreleased
 
+- New **H3 Image Caption** node describes images in English or Chinese
+  with the vision model of the connected H3 Prompt API, for example to
+  write a prompt from a reference picture. Requests are logged as
+  `*_caption` when the Prompt API's `log_prompts` is on.
 - The Ref Prompt Builder example uses `segment_seconds=5`, so its 8-second
   video is sampled in two segments.
 

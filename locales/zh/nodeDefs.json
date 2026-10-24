@@ -237,5 +237,13 @@
       "lighting_preset": { "tooltip": "独立光影句预设。" },
       "manual_prompt": { "tooltip": "开启时直接输出 final_prompt（在预览框手动修改后自动开启）。" }
     }
+  },
+  "MiniMaxH3ImageCaption": {
+    "description": "用所连 H3 Prompt API 的视觉模型描述图片，例如从参考图反推提示词。",
+    "inputs": {
+      "image": { "tooltip": "批量图片逐张描述，各段描述之间空一行。" },
+      "prompt_api": { "tooltip": "模型需要支持图片输入。" },
+      "language": { "tooltip": "描述语言。图中可见的文字保留原语言。" }
+    }
   }
 }
