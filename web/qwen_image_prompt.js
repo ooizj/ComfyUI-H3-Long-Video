@@ -297,6 +297,7 @@ function installQwen21Builder(node) {
 
   let catalog = null;
   let lastSizeKey = "";
+  let subjectLinked = false;
   const schedule = debounce(() => runAssemble(), 120);
   const i18n = localizer(() => { relabel(); preview.updateLockUI(); schedule(); });
 
@@ -439,6 +440,10 @@ function installQwen21Builder(node) {
       });
       txtNegPreview.value = data.negative_prompt || "";
       preview.show(data.prompt);
+      if (subjectLinked) {
+        preview.setStatus(t("🔗 subject 已连接：运行时使用上游文本，预览中的主体只是占位。",
+          "🔗 subject is linked: the run uses the linked text; the subject in this preview is a placeholder."));
+      }
     } catch (err) {
       preview.setStatus(t(`同步参数出错: ${err.message}`, `Could not update the prompt: ${err.message}`), true);
     }
@@ -526,6 +531,15 @@ function installQwen21Builder(node) {
       const key = String(linkedSize());
       if (catalog && key !== lastSizeKey) {
         lastSizeKey = key;
+        schedule();
+      }
+      // A linked subject, e.g. from Image to Prompt, replaces the text box at run time.
+      const linked = node.inputs?.some(input => input.name === "subject" && input.link != null) ?? false;
+      if (catalog && linked !== subjectLinked) {
+        subjectLinked = linked;
+        txtSubject.disabled = linked;
+        clearInputBtn.disabled = linked;
+        if (!linked) preview.setStatus("");
         schedule();
       }
     },

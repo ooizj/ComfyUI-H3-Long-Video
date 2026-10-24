@@ -6,7 +6,7 @@ Generate MiniMax H3 videos of any length from one prompt and a total duration. B
 
 - **One prompt, any length**: the video is sampled in segments that continue each other's picture and sound, then joined at 24 fps.
 - **Continue any video**: from a saved latent at any point (exact, no re-encoding) or from a video file.
-- **Prompt editors**: H3 Image & Prompt with backups, H3 Ref Prompt Builder that turns a description into the six Ref2VA sections, H3 Image Caption that describes a picture in English or Chinese, and Qwen Image 2.1 Prompt Builder for character sheets, scene cards and keyframes made before the video.
+- **Prompt editors**: H3 Image & Prompt with backups, H3 Ref Prompt Builder that turns a description into the six Ref2VA sections, Image to Prompt that writes a prompt from a picture in English or Chinese, and Qwen Image 2.1 Prompt Builder for character sheets, scene cards and keyframes made before the video.
 - **Cloud or local LLM** splits the story into segment prompts with the right timing.
 
 ## Install
@@ -159,7 +159,7 @@ With `json_mode` on, requests to a local LLM carry a JSON schema, so llama.cpp, 
 <details>
 <summary>Prompt logs</summary>
 
-With `log_prompts` on, logs go to `output/h3_prompt_logs/` (TXT + JSON): `*_builder` records Ref Prompt Builder AI requests, `*_caption` Image Caption requests, `*_planner` API planning, and `*_video` the final segment prompts and settings before sampling. `prepared` means ready for sampling only. The key mask hides the key on screen, not in the saved workflow: clear key fields before sharing workflows.
+With `log_prompts` on, logs go to `output/h3_prompt_logs/` (TXT + JSON): `*_builder` records Ref Prompt Builder AI requests, `*_image_prompt` Image to Prompt requests, `*_planner` API planning, and `*_video` the final segment prompts and settings before sampling. `prepared` means ready for sampling only. The key mask hides the key on screen, not in the saved workflow: clear key fields before sharing workflows.
 
 </details>
 
@@ -214,11 +214,13 @@ Use `[Shot 1]` for the opening and `[Shot 2] At 00:06.000, ...` for a cut at six
 
 </details>
 
-## H3 Image Caption
+## Image to Prompt
 
-Describes images with the vision model of the connected H3 Prompt API (`video/minimax`), for example to write a prompt from a reference picture. Connect `image` and `prompt_api`, pick `language` (English or 中文), and connect `description` to a text input or a text display node.
+Writes an image generation prompt from a picture with the vision model of the connected H3 Prompt API (`video/minimax`). Connect `image` and `prompt_api`, then pick `mode` and `language` (English or 中文).
 
-- Each image of a batch is described in its own request; the descriptions are separated by a blank line.
+- `full_prompt` describes subjects, setting, composition, camera, lighting and style. Connect `prompt` to the text input of any image model, such as CLIP Text Encode.
+- `subject_only` leaves out style, shot size, camera and lighting. Connect `prompt` to `subject` of Qwen Image 2.1 Prompt Builder, whose presets add those; its text box is then locked and the run uses the linked text.
+- Each image of a batch is described in its own request; the prompts are separated by a blank line.
 - The Prompt API's `model` must accept images. Text visible in the image keeps its original language.
 
 ## Qwen Image 2.1 Prompt Builder

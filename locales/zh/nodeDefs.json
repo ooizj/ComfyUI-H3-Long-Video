@@ -238,12 +238,13 @@
       "manual_prompt": { "tooltip": "开启时直接输出 final_prompt（在预览框手动修改后自动开启）。" }
     }
   },
-  "MiniMaxH3ImageCaption": {
-    "description": "用所连 H3 Prompt API 的视觉模型描述图片，例如从参考图反推提示词。",
+  "PromptAPIImageToPrompt": {
+    "description": "用所连 H3 Prompt API 的视觉模型从图片反推生图提示词。prompt 可接任意文本提示词输入；mode 选 subject_only 时接 Qwen Image 2.1 Prompt Builder 的 subject。",
     "inputs": {
-      "image": { "tooltip": "批量图片逐张描述，各段描述之间空一行。" },
+      "image": { "tooltip": "批量图片逐张反推，各段提示词之间空一行。" },
       "prompt_api": { "tooltip": "模型需要支持图片输入。" },
-      "language": { "tooltip": "描述语言。图中可见的文字保留原语言。" }
+      "mode": { "tooltip": "full_prompt：完整提示词，含场景、构图、机位、光线和风格，适用于任意文生图模型。subject_only：只写人物、物品和场景，不写风格、景别、机位和光线，接 Qwen Image 2.1 Prompt Builder 的 subject，由它的预设补齐。" },
+      "language": { "tooltip": "提示词语言。图中可见的文字保留原语言。" }
     }
   }
 }

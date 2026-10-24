@@ -6,7 +6,7 @@
 
 - **一份提示词，任意时长**：分段采样，每段接续上一段的画面和声音，最后以 24 fps 拼接。
 - **接续任意视频**：从保存的 latent 的任意位置精确接续（不重新编码），或从视频文件接续。
-- **提示词编辑器**：带备份的 H3 Image & Prompt，把描述写成 Ref2VA 六段提示词的 H3 Ref Prompt Builder，用中文或英文反推图片描述的 H3 Image Caption，以及为视频前期生成角色设定卡、场景卡和首尾帧的 Qwen Image 2.1 Prompt Builder。
+- **提示词编辑器**：带备份的 H3 Image & Prompt，把描述写成 Ref2VA 六段提示词的 H3 Ref Prompt Builder，用中文或英文从图片反推提示词的 Image to Prompt，以及为视频前期生成角色设定卡、场景卡和首尾帧的 Qwen Image 2.1 Prompt Builder。
 - **云端或本地大模型**把剧情拆成时间正确的各段提示词。
 
 ## 安装
@@ -159,7 +159,7 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 <details>
 <summary>提示词日志</summary>
 
-启用 `log_prompts` 后，日志保存在 `output/h3_prompt_logs/`（TXT + JSON）：`*_builder` 是 Ref Prompt Builder 的 AI 请求记录，`*_caption` 是 Image Caption 的请求记录，`*_planner` 是 API 规划记录，`*_video` 是采样前确定的各段提示词与设置。`prepared` 仅表示准备采样。密钥遮罩只隐藏显示，不影响工作流中保存的值，分享工作流前请清空密钥字段。
+启用 `log_prompts` 后，日志保存在 `output/h3_prompt_logs/`（TXT + JSON）：`*_builder` 是 Ref Prompt Builder 的 AI 请求记录，`*_image_prompt` 是 Image to Prompt 的请求记录，`*_planner` 是 API 规划记录，`*_video` 是采样前确定的各段提示词与设置。`prepared` 仅表示准备采样。密钥遮罩只隐藏显示，不影响工作流中保存的值，分享工作流前请清空密钥字段。
 
 </details>
 
@@ -214,11 +214,13 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 
 </details>
 
-## H3 Image Caption
+## Image to Prompt
 
-用所连 H3 Prompt API 的视觉模型反推图片描述（`video/minimax` 分类），例如从参考图写提示词。接上 `image` 和 `prompt_api`，选择 `language`（English 或 中文），把 `description` 接到文本输入或文本显示节点。
+用所连 H3 Prompt API 的视觉模型从图片反推生图提示词（`video/minimax` 分类）。接上 `image` 和 `prompt_api`，再选择 `mode` 和 `language`（English 或 中文）。
 
-- 批量图片逐张单独请求，各段描述之间空一行。
+- `full_prompt` 写出主体、场景、构图、机位、光线和风格。把 `prompt` 接到任意生图模型的文本输入，例如 CLIP Text Encode。
+- `subject_only` 不写风格、景别、机位和光线。把 `prompt` 接到 Qwen Image 2.1 Prompt Builder 的 `subject`，由它的预设补齐；连接后它的描述框锁定，运行时使用连接的文本。
+- 批量图片逐张单独请求，各段提示词之间空一行。
 - Prompt API 的 `model` 需要支持图片输入。图中可见的文字保留原语言。
 
 ## Qwen Image 2.1 Prompt Builder
