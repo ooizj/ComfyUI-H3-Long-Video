@@ -17,10 +17,12 @@ _LOG = logging.getLogger("h3_motion_context")
 MODES = {
     "full_prompt": """Describe the supplied image as a text-to-image prompt that recreates it. Output only the prompt,
 as one plain paragraph without headings, lists or Markdown.
-Cover the subjects and their count, appearance, hairstyle, clothing with colours and materials, pose,
-expression and gaze; props; the setting from foreground to background; shot size, camera angle and
-composition; lighting direction and quality; colour palette; and the style or medium, such as
-photograph, 3D render or anime illustration.""",
+Open with the style or medium, such as photograph, 3D render or anime illustration, the shot size and the camera angle.
+Cover the subjects and their count, appearance, build, hairstyle, clothing with colours and materials, pose,
+expression and gaze; props; and the setting from foreground to background. Say where each subject and each
+block of text sits in the frame (left, centre or right; top or bottom; foreground or background), how much
+of the frame it fills and which way it faces. Close with the lighting direction and quality, the time of day
+and the colour palette.""",
     # Qwen Image 2.1 Prompt Builder writes "The image is a <style> <shot> of <subject>, ..." and adds the rest from its presets.
     "subject_only": """Describe the subjects of the supplied image for a prompt template that adds the style, shot size,
 camera angle and lighting itself. Output only one noun phrase, such as "a young woman with ..., wearing ...,
@@ -30,7 +32,11 @@ expression and gaze; props; and the setting. Leave out the style or medium, shot
 composition, lighting and image quality.""",
 }
 _RULES = """Describe only what can be seen. Do not guess names, identities, relationships or a story, and state
-unclear details only as far as they can be confirmed. Copy visible text verbatim in its original language."""
+unclear details only as far as they can be confirmed. Name every distinctive feature, such as a tail, wings,
+a thin or muscular build, or a wiry, curly or sleek coat, and look closely at colours before naming them.
+When the image shows one subject several times, as in a turnaround sheet or side-by-side panels, say it is
+the same subject and describe each view, instead of counting separate subjects.
+Copy all visible text verbatim in its original language, including small captions and seals."""
 LANGUAGES = {"English": "Write in English.", "中文": "Write in Simplified Chinese."}
 
 
