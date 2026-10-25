@@ -485,6 +485,18 @@ function installQwen21Builder(node) {
     preview.setStatus(t("已清空输入内容。", "Description cleared."));
   };
 
+  // A linked prompt, e.g. from Image to Prompt, replaces the Step 1 description at run time.
+  function updatePromptLink() {
+    const linked = node.inputs?.some(input => input.name === "prompt" && input.link != null) ?? false;
+    if (linked === promptLinked) return;
+    promptLinked = linked;
+    txtSubject.disabled = linked;
+    clearInputBtn.disabled = linked;
+    linkedHint.hidden = !linked;
+    if (!linked) preview.setStatus("");
+    if (catalog) schedule();
+  }
+
   function restoreFromWidgets() {
     // Graph loading configures the node before the catalog arrives; the catalog callback restores again.
     if (!catalog) return;
@@ -498,6 +510,7 @@ function installQwen21Builder(node) {
     updateHints();
     txtSubject.value = widgets.subject?.value ?? "";
     preview.restore();
+    updatePromptLink();
     schedule();
     syncWidth();
   }
@@ -517,6 +530,11 @@ function installQwen21Builder(node) {
     oldConfigure?.apply(this, args);
     restoreFromWidgets();
   };
+  const oldConnectionsChange = node.onConnectionsChange;
+  node.onConnectionsChange = function (...args) {
+    oldConnectionsChange?.apply(this, args);
+    updatePromptLink();
+  };
   const oldRemoved = node.onRemoved;
   node.onRemoved = function (...args) {
     i18n.dispose();
@@ -534,16 +552,6 @@ function installQwen21Builder(node) {
       const key = String(linkedSize());
       if (catalog && key !== lastSizeKey) {
         lastSizeKey = key;
-        schedule();
-      }
-      // A linked prompt, e.g. from Image to Prompt, replaces the Step 1 description at run time.
-      const linked = node.inputs?.some(input => input.name === "prompt" && input.link != null) ?? false;
-      if (catalog && linked !== promptLinked) {
-        promptLinked = linked;
-        txtSubject.disabled = linked;
-        clearInputBtn.disabled = linked;
-        linkedHint.hidden = !linked;
-        if (!linked) preview.setStatus("");
         schedule();
       }
     },
