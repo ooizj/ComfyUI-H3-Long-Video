@@ -220,7 +220,7 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 用所连 H3 Prompt API 的视觉模型从图片反推生图提示词（`video/minimax` 分类）。接上 `image` 和 `prompt_api`，再选择 `mode` 和 `language`（English 或 中文）。
 
 - `full_prompt` 写出主体、场景、构图、机位、光线和风格。把 `prompt` 接到任意生图模型的文本输入，例如 CLIP Text Encode。
-- `subject_only` 不写风格、景别、机位和光线。把 `prompt` 接到 Qwen Image 2.1 Prompt Builder 的 `prompt` 输入，由它的预设补齐；连接后第一步的描述框隐藏，运行时使用连接的文本。
+- `subject_only` 不写风格、景别、机位和光线。把 `prompt` 接到 Qwen Image 2.1 Prompt Builder 的 `prompt` 输入，由它的预设补齐；连接后第一步的描述框置灰，运行时使用连接的文本。
 - 批量图片逐张单独请求，各段提示词之间空一行。
 - Prompt API 的 `model` 需要支持图片输入。图中可见的文字保留原语言。
 

@@ -540,8 +540,8 @@ function installQwen21Builder(node) {
       const linked = node.inputs?.some(input => input.name === "prompt" && input.link != null) ?? false;
       if (catalog && linked !== promptLinked) {
         promptLinked = linked;
-        txtSubject.hidden = linked;
-        clearInputBtn.hidden = linked;
+        txtSubject.disabled = linked;
+        clearInputBtn.disabled = linked;
         linkedHint.hidden = !linked;
         if (!linked) preview.setStatus("");
         schedule();
