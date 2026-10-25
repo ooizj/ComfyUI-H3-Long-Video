@@ -238,15 +238,16 @@
       "medium_shot": { "tooltip": "景别。胸像/半身时，描述里不要写裤子、鞋子等画面外的东西，否则会画成全身。" },
       "camera_angle": { "tooltip": "镜头机位视角。" },
       "lighting_preset": { "tooltip": "独立光影句预设。" },
+      "prompt": { "tooltip": "连接后代替第一步的描述，例如接 Image to Prompt（mode 选 subject_only）。" },
       "manual_prompt": { "tooltip": "开启时直接输出 final_prompt（在预览框手动修改后自动开启）。" }
     }
   },
   "PromptAPIImageToPrompt": {
-    "description": "用所连 H3 Prompt API 的视觉模型从图片反推生图提示词。prompt 可接任意文本提示词输入；mode 选 subject_only 时接 Qwen Image 2.1 Prompt Builder 的 subject。",
+    "description": "用所连 H3 Prompt API 的视觉模型从图片反推生图提示词。prompt 可接任意文本提示词输入；mode 选 subject_only 时接 Qwen Image 2.1 Prompt Builder 的 prompt。",
     "inputs": {
       "image": { "tooltip": "批量图片逐张反推，各段提示词之间空一行。" },
       "prompt_api": { "tooltip": "模型需要支持图片输入。" },
-      "mode": { "tooltip": "full_prompt：完整提示词，含场景、构图、机位、光线和风格，适用于任意文生图模型。subject_only：只写人物、物品和场景，不写风格、景别、机位和光线，接 Qwen Image 2.1 Prompt Builder 的 subject，由它的预设补齐。" },
+      "mode": { "tooltip": "full_prompt：完整提示词，含场景、构图、机位、光线和风格，适用于任意文生图模型。subject_only：只写人物、物品和场景，不写风格、景别、机位和光线，接 Qwen Image 2.1 Prompt Builder 的 prompt，由它的预设补齐。" },
       "language": { "tooltip": "提示词语言。图中可见的文字保留原语言。" }
     }
   }

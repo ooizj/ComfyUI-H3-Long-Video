@@ -297,7 +297,7 @@ function installQwen21Builder(node) {
 
   let catalog = null;
   let lastSizeKey = "";
-  let subjectLinked = false;
+  let promptLinked = false;
   const schedule = debounce(() => runAssemble(), 120);
   const i18n = localizer(() => { relabel(); preview.updateLockUI(); schedule(); });
 
@@ -328,7 +328,10 @@ function installQwen21Builder(node) {
     "• Empty scene card: the setting and furniture (e.g. a cosy minimalist living room, light oak floor, cream fabric sofa, sunlight through tall windows)\n" +
     "• Video keyframe: the character's action, surroundings and camera feel (for a bust or waist-up shot, leave out trousers and shoes)",
     "placeholder");
-  heroSec.append(heroTitle, txtSubject);
+  const linkedHint = i18n.set(el("div", "q21vp-hint"), "🔗 已连接 prompt 输入：运行时用上游文本作为描述，这里不用填写。",
+    "🔗 prompt is linked: the run uses the linked text as the description, so nothing is needed here.");
+  linkedHint.hidden = true;
+  heroSec.append(heroTitle, txtSubject, linkedHint);
   root.append(heroSec);
 
   // Step 2: asset type and style
@@ -440,9 +443,9 @@ function installQwen21Builder(node) {
       });
       txtNegPreview.value = data.negative_prompt || "";
       preview.show(data.prompt);
-      if (subjectLinked) {
-        preview.setStatus(t("🔗 subject 已连接：运行时使用上游文本，预览中的主体只是占位。",
-          "🔗 subject is linked: the run uses the linked text; the subject in this preview is a placeholder."));
+      if (promptLinked) {
+        preview.setStatus(t("🔗 prompt 已连接：运行时使用上游文本，预览中的主体只是占位。",
+          "🔗 prompt is linked: the run uses the linked text; the subject in this preview is a placeholder."));
       }
     } catch (err) {
       preview.setStatus(t(`同步参数出错: ${err.message}`, `Could not update the prompt: ${err.message}`), true);
@@ -533,12 +536,13 @@ function installQwen21Builder(node) {
         lastSizeKey = key;
         schedule();
       }
-      // A linked subject, e.g. from Image to Prompt, replaces the text box at run time.
-      const linked = node.inputs?.some(input => input.name === "subject" && input.link != null) ?? false;
-      if (catalog && linked !== subjectLinked) {
-        subjectLinked = linked;
-        txtSubject.disabled = linked;
-        clearInputBtn.disabled = linked;
+      // A linked prompt, e.g. from Image to Prompt, replaces the Step 1 description at run time.
+      const linked = node.inputs?.some(input => input.name === "prompt" && input.link != null) ?? false;
+      if (catalog && linked !== promptLinked) {
+        promptLinked = linked;
+        txtSubject.hidden = linked;
+        clearInputBtn.hidden = linked;
+        linkedHint.hidden = !linked;
         if (!linked) preview.setStatus("");
         schedule();
       }

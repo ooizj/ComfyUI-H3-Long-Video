@@ -22,8 +22,8 @@ layout. Each entry below says which of the two it works with.
 - New **Image to Prompt** node writes an image generation prompt from a
   picture, in English or Chinese, with the vision model of the connected
   H3 Prompt API. `full_prompt` suits any text-to-image model;
-  `subject_only` fills `subject` of Qwen Image 2.1 Prompt Builder, whose
-  text box locks while it is linked. Requests are logged as
+  `subject_only` feeds the new optional `prompt` input of Qwen Image 2.1
+  Prompt Builder, which replaces the Step 1 description while linked. Requests are logged as
   `*_image_prompt` when the Prompt API's `log_prompts` is on.
 - The Ref Prompt Builder example uses `segment_seconds=5`, so its 8-second
   video is sampled in two segments.

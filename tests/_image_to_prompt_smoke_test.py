@@ -50,7 +50,7 @@ def main(log_root):
         text = image_prompt.ImageToPrompt.execute(images[:1], {**config, "log_prompts": False}, mode="subject_only")[0]
     assert "Leave out the style" in request.call_args.args[1]["messages"][0]["content"]
     assert f"of {subject}," in qwen.QwenImage21VideoPrompt.execute("none", 1024, 1024, "realistic_photo", "auto_by_asset",
-                                                                    "eye_level", "studio_flat", text, False, "")[0]
+                                                                    "eye_level", "studio_flat", "typed text", False, "", prompt=text)[0]
     with patch.object(image_prompt, "request_chat", return_value=reply("")):
         try:
             image_prompt.describe_images(images[:1], {**config, "log_prompts": False})

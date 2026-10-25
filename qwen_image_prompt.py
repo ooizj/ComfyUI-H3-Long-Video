@@ -411,6 +411,8 @@ class QwenImage21VideoPrompt(cio.ComfyNode):
                 cio.Combo.Input("camera_angle", options=list(CAMERA_ANGLE_PRESETS.keys()), default="eye_level", tooltip="Camera angle."),
                 cio.Combo.Input("lighting_preset", options=list(LIGHTING_PRESETS.keys()), default="studio_flat", tooltip="Lighting sentence preset."),
                 cio.String.Input("subject", default="", multiline=True, placeholder="Describe the person or scene to generate"),
+                cio.String.Input("prompt", optional=True, force_input=True,
+                                 tooltip="Replaces subject when linked, e.g. from Image to Prompt with mode subject_only."),
                 cio.Boolean.Input("manual_prompt", default=False, tooltip="Output final_prompt as-is. Turned on automatically when the preview is edited by hand."),
                 cio.String.Input("final_prompt", default="", multiline=True, placeholder="Prompt preview; edit to adjust by hand"),
             ],
@@ -425,7 +427,9 @@ class QwenImage21VideoPrompt(cio.ComfyNode):
     @classmethod
     def execute(cls, asset_type, width, height, style_preset, medium_shot, camera_angle, lighting_preset,
                 subject,
-                manual_prompt, final_prompt):
+                manual_prompt, final_prompt, prompt=None):
+        if prompt is not None:
+            subject = prompt
         if asset_type not in ASSET_TYPES:
             asset_type = "character_4view"
         if manual_prompt and final_prompt.strip():

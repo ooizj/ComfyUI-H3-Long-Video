@@ -89,13 +89,13 @@ class ImageToPrompt(io.ComfyNode):
             node_id="PromptAPIImageToPrompt", display_name="Image to Prompt",
             category="video/minimax",
             description="Write an image generation prompt from a picture with the vision model of the connected H3 Prompt API. "
-                        "Connect prompt to any text prompt input, or to subject of Qwen Image 2.1 Prompt Builder with mode subject_only.",
+                        "Connect prompt to any text prompt input, or to prompt of Qwen Image 2.1 Prompt Builder with mode subject_only.",
             inputs=[
                 io.Image.Input("image", tooltip="Each image of a batch is described separately; prompts are separated by a blank line."),
                 io.Custom("H3_PROMPT_API").Input("prompt_api", tooltip="Its model must accept images."),
                 io.Combo.Input("mode", options=list(MODES), default="full_prompt",
                                tooltip="full_prompt: a complete prompt with setting, composition, camera, lighting and style, for any text-to-image model. "
-                                       "subject_only: people, objects and setting without style, shot, camera or lighting, for subject of Qwen Image 2.1 Prompt Builder, whose presets add those."),
+                                       "subject_only: people, objects and setting without style, shot, camera or lighting, for prompt of Qwen Image 2.1 Prompt Builder, whose presets add those."),
                 io.Combo.Input("language", options=list(LANGUAGES), default="English",
                                tooltip="Prompt language. Text visible in the image keeps its original language."),
             ],

@@ -220,7 +220,7 @@ Use `[Shot 1]` for the opening and `[Shot 2] At 00:06.000, ...` for a cut at six
 Writes an image generation prompt from a picture with the vision model of the connected H3 Prompt API (`video/minimax`). Connect `image` and `prompt_api`, then pick `mode` and `language` (English or 中文).
 
 - `full_prompt` describes subjects, setting, composition, camera, lighting and style. Connect `prompt` to the text input of any image model, such as CLIP Text Encode.
-- `subject_only` leaves out style, shot size, camera and lighting. Connect `prompt` to `subject` of Qwen Image 2.1 Prompt Builder, whose presets add those; its text box is then locked and the run uses the linked text.
+- `subject_only` leaves out style, shot size, camera and lighting. Connect `prompt` to the `prompt` input of Qwen Image 2.1 Prompt Builder, whose presets add those; its Step 1 text box is then hidden and the run uses the linked text.
 - Each image of a batch is described in its own request; the prompts are separated by a blank line.
 - The Prompt API's `model` must accept images. Text visible in the image keeps its original language.
 
