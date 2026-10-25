@@ -238,6 +238,15 @@ def test_prompt_api():
         with patch.object(planner.comfy.model_management, "unload_all_models"):
             assert split(full_prompt, schedule, "Ref2VA", REFS, **swap)[1] == expected
         assert [c.args[0] for c in post.call_args_list] == ["http://127.0.0.1:8081/v1/chat/completions"] * 2 + ["http://127.0.0.1:8081/api/models/unload"]
+        keep, = planner.MiniMaxH3PromptAPI.execute(api_url="http://127.0.0.1:8081/v1", model="qwen", free_vram=False,
+            unload_url="http://127.0.0.1:8081/api/models/unload", json_mode=False).result
+        assert keep["local_llm"] is True and keep["free_vram"] is False
+        post.reset_mock()
+        post.side_effect = [response(timeline), response({"prompts": expected})]
+        with patch.object(planner.comfy.model_management, "unload_all_models") as unload_comfy:
+            assert split(full_prompt, schedule, "Ref2VA", REFS, **keep)[1] == expected
+            unload_comfy.assert_not_called()
+        assert [c.args[0] for c in post.call_args_list] == ["http://127.0.0.1:8081/v1/chat/completions"] * 2
         post.reset_mock()
         post.side_effect = [response(timeline), response({}, status=500), MagicMock()]
         with patch.object(planner.comfy.model_management, "unload_all_models"):

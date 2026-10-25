@@ -151,7 +151,7 @@ Prompt splitting needs a capable model. In our tests a local 27B dense model wro
 <details>
 <summary>Local LLMs and VRAM</summary>
 
-A local LLM shares the GPU with H3. `local_llm` (advanced, `auto`) treats an `api_url` on this computer (`localhost`, `127.0.0.1`) as local: ComfyUI models are unloaded before each LLM request, and after planning or an AI rewrite the node POSTs `unload_url` so the server frees its VRAM before sampling. For llama-swap use `http://127.0.0.1:8081/api/models/unload`; leave `unload_url` empty for a server that unloads idle models by itself.
+A local LLM shares the GPU with H3. `local_llm` (advanced, `auto`) treats an `api_url` on this computer (`localhost`, `127.0.0.1`) as local. With `free_vram` on (default), ComfyUI models are unloaded before each LLM request, and after planning or an AI rewrite the node POSTs `unload_url` so the server frees its VRAM before sampling. Turn `free_vram` off to keep both loaded, e.g. when the LLM runs on another GPU. For llama-swap use `http://127.0.0.1:8081/api/models/unload`; leave `unload_url` empty for a server that unloads idle models by itself.
 
 With `json_mode` on, requests to a local LLM carry a JSON schema, so llama.cpp, Ollama and LM Studio can only produce the expected structure: one object per segment with one field per prompt section, or the six Builder fields. The node writes the section names itself.
 

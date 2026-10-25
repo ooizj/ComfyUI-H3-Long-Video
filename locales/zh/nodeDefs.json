@@ -185,7 +185,10 @@
         "tooltip": "采样前将可读的原始/最终提示词保存到 output/h3_prompt_logs；详细回复和用量在同名 JSON 中。不包含密钥、请求头和推理内容。"
       },
       "local_llm": {
-        "tooltip": "本地大模型与 H3 共用本机显存：每次请求前卸载 ComfyUI 模型，LLM 用完后请求 unload_url。auto：api_url 指向本机（localhost、127.0.0.1）时为 yes。"
+        "tooltip": "本地大模型与 H3 共用本机显存，并用 JSON schema 约束输出。auto：api_url 指向本机（localhost、127.0.0.1）时为 yes。"
+      },
+      "free_vram": {
+        "tooltip": "仅本地大模型。开启：每次请求 LLM 前卸载 ComfyUI 模型，LLM 用完后请求 unload_url。关闭：两边模型都留在显存中，例如 LLM 跑在另一块显卡时。"
       },
       "unload_url": {
         "tooltip": "仅本地大模型。提示词规划或 AI 整理结束后 POST 此地址，让 LLM 服务在 H3 采样前释放显存，例如 llama-swap：http://127.0.0.1:8081/api/models/unload。服务会自动卸载空闲模型时留空。"

@@ -154,10 +154,10 @@ def main():
             pass
         else:
             raise AssertionError("API failure must propagate")
-    local = {**config, "local_llm": True, "unload_url": "http://127.0.0.1:8081/api/models/unload"}
+    local = {**config, "local_llm": True, "free_vram": True, "unload_url": "http://127.0.0.1:8081/api/models/unload"}
     with patch.object(builder, "request_chat", return_value=response) as request, patch.object(builder, "release_llm") as release:
         builder.rewrite_fields(malformed, 2, local)
-        assert request.call_args.kwargs["local_llm"] is True
+        assert request.call_args.kwargs["free_vram"] is True
         schema = request.call_args.args[1]["response_format"]["json_schema"]["schema"]
         assert schema["required"] == list(builder.FIELDS) and schema["additionalProperties"] is False
         release.assert_called_once_with(True, "http://127.0.0.1:8081/api/models/unload")

@@ -75,14 +75,14 @@ def describe_images(images, config, mode="full_prompt", language="English"):
             }
             _LOG.info("Image to Prompt: %s, %s, %.1f KiB JPEG", payload["model"], stage, jpeg_bytes / 1024)
             requests_log.append(prompt_request_log(payload, stage))
-            data = request_chat(endpoint, payload, headers, config.get("timeout_seconds", 600), local_llm=config.get("local_llm", False))
+            data = request_chat(endpoint, payload, headers, config.get("timeout_seconds", 600), free_vram=config.get("free_vram", False))
             text = (response_message(data, responses, stage).get("content") or "").strip()
             if not text:
                 raise RuntimeError("AI returned an empty description. Use a vision model, or raise max_tokens for a reasoning model.")
             prompts.append(text)
         return "\n\n".join(prompts)
     finally:
-        release_llm(config.get("local_llm", False), config.get("unload_url", ""))
+        release_llm(config.get("free_vram", False), config.get("unload_url", ""))
         if config.get("log_prompts", True):
             save_log(prompts, mode, language, config["model"], time.monotonic() - started,
                      responses, requests_log, config.get("api_key", ""), sys.exception())

@@ -151,7 +151,7 @@ Builder 的 AI 按钮是独立操作，点击时会调用它所连接的 API。�
 <details>
 <summary>本地大模型与显存</summary>
 
-本地大模型与 H3 共用显卡。`local_llm`（高级选项，默认 `auto`）把指向本机（`localhost`、`127.0.0.1`）的 `api_url` 视为本地模型：每次请求 LLM 前先卸载 ComfyUI 模型；规划或 AI 改写结束后向 `unload_url` 发送 POST，让服务在采样前释放显存。llama-swap 填 `http://127.0.0.1:8081/api/models/unload`；服务会自动卸载空闲模型时留空即可。
+本地大模型与 H3 共用显卡。`local_llm`（高级选项，默认 `auto`）把指向本机（`localhost`、`127.0.0.1`）的 `api_url` 视为本地模型。`free_vram` 开启时（默认），每次请求 LLM 前先卸载 ComfyUI 模型；规划或 AI 改写结束后向 `unload_url` 发送 POST，让服务在采样前释放显存。LLM 跑在另一块显卡等情况下可关闭 `free_vram`，两边模型都保留在显存中。llama-swap 填 `http://127.0.0.1:8081/api/models/unload`；服务会自动卸载空闲模型时留空即可。
 
 本地大模型且开启 `json_mode` 时，请求会附带 JSON Schema，llama.cpp、Ollama、LM Studio 只能按规定结构输出：每段一个对象、每个提示词段落一个字段，Builder 则是六个字段；段落标题由节点自己写入。
 

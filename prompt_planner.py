@@ -306,9 +306,9 @@ def list_api_models(api_url, api_key):
         return [m["id"] for m in response.json()["data"]]
 
 
-def release_llm(local_llm, unload_url):
+def release_llm(free_vram, unload_url):
     """Ask a local LLM server to free its VRAM before H3 samples."""
-    if not (local_llm and unload_url.strip()):
+    if not (free_vram and unload_url.strip()):
         return
     try:
         requests.post(unload_url.strip(), timeout=60).raise_for_status()
@@ -325,9 +325,9 @@ def server_error(response):
     return " ".join(str(message).split())[:300]
 
 
-def request_chat(endpoint, payload, headers, timeout_seconds, local_llm=False):
+def request_chat(endpoint, payload, headers, timeout_seconds, free_vram=False):
     comfy.model_management.throw_exception_if_processing_interrupted()
-    if local_llm:
+    if free_vram:
         # The LLM server shares this computer's GPU: free what ComfyUI models hold before it loads.
         comfy.model_management.unload_all_models()
         comfy.model_management.soft_empty_cache()
@@ -374,7 +374,7 @@ _PLAN_CACHE = OrderedDict()
 
 def split_prompts(prompt, schedule, input_mode, reference_counts, model, variation,
                   api_url, api_key, json_mode, max_tokens, timeout_seconds, log_prompts=True,
-                  local_llm=False, unload_url="", has_last_frame=False):
+                  local_llm=False, free_vram=False, unload_url="", has_last_frame=False):
     """Return the final sampling schedule and its prompts before video inference."""
     key = json.dumps([prompt, schedule, input_mode, reference_counts, api_url, model, variation, json_mode, max_tokens,
                       local_llm, has_last_frame])
@@ -384,14 +384,14 @@ def split_prompts(prompt, schedule, input_mode, reference_counts, model, variati
         return _PLAN_CACHE[key]
     endpoint = chat_endpoint(api_url)
     headers = {"Authorization": f"Bearer {api_key.strip()}"} if api_key.strip() else {}
-    request = partial(request_chat, endpoint, headers=headers, timeout_seconds=timeout_seconds, local_llm=local_llm)
+    request = partial(request_chat, endpoint, headers=headers, timeout_seconds=timeout_seconds, free_vram=free_vram)
     try:
         # Local servers constrain decoding to a JSON schema; cloud APIs keep plain JSON mode.
         result = plan_prompts(prompt, schedule, input_mode, reference_counts, model, variation,
                               request, json_mode, max_tokens, log_prompts, api_key,
                               structured=local_llm and json_mode, has_last_frame=has_last_frame)
     finally:
-        release_llm(local_llm, unload_url)
+        release_llm(free_vram, unload_url)
     _PLAN_CACHE[key] = result
     if len(_PLAN_CACHE) > 16:
         _PLAN_CACHE.popitem(last=False)
@@ -533,9 +533,11 @@ class MiniMaxH3PromptAPI(io.ComfyNode):
                 io.Boolean.Input("log_prompts", default=True, optional=True, advanced=True,
                     tooltip="Save readable original/final prompts to output/h3_prompt_logs before sampling; detailed responses and usage are in the companion JSON. Credentials, headers and reasoning content are excluded."),
                 io.Combo.Input("local_llm", options=["auto", "yes", "no"], default="auto", optional=True, advanced=True,
-                    tooltip="A local LLM shares this computer's VRAM with H3: before each request ComfyUI models are unloaded, and unload_url is called when the LLM is done. auto: yes when api_url points to this computer (localhost, 127.0.0.1)."),
+                    tooltip="A local LLM shares this computer's VRAM with H3 and gets JSON-schema constrained output. auto: yes when api_url points to this computer (localhost, 127.0.0.1)."),
                 io.String.Input("unload_url", default="", optional=True,
                     tooltip="Local LLM only. Requested (POST) after prompt planning or AI rewrite so the LLM server frees its VRAM before H3 samples, e.g. llama-swap: http://127.0.0.1:8081/api/models/unload. Leave empty if your server unloads idle models by itself."),
+                io.Boolean.Input("free_vram", default=True, optional=True,
+                    tooltip="Local LLM only. On: unload ComfyUI models before each LLM request and call unload_url when the LLM is done. Off: keep both loaded, e.g. when the LLM runs on another GPU."),
             ],
             outputs=[io.Custom("H3_PROMPT_API").Output(display_name="prompt_api")],
         )
@@ -543,12 +545,13 @@ class MiniMaxH3PromptAPI(io.ComfyNode):
     @classmethod
     def execute(cls, api_url="https://api.deepseek.com", model="deepseek-flash", api_key="",
                 json_mode=True, max_tokens=65535, timeout_seconds=180, variation=0, log_prompts=True,
-                local_llm="auto", unload_url=""):
+                local_llm="auto", unload_url="", free_vram=True):
+        local = local_llm == "yes" or (local_llm == "auto" and is_local_url(api_url))
         return io.NodeOutput({
             "api_url": api_url, "model": model, "api_key": api_key,
             "json_mode": json_mode, "max_tokens": max_tokens,
             "timeout_seconds": timeout_seconds, "variation": variation, "log_prompts": log_prompts,
-            "local_llm": local_llm == "yes" or (local_llm == "auto" and is_local_url(api_url)), "unload_url": unload_url,
+            "local_llm": local, "free_vram": local and free_vram, "unload_url": unload_url,
         })
 
 

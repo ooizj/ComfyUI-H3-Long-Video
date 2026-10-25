@@ -10,6 +10,10 @@ layout. Each entry below says which of the two it works with.
 
 ## Unreleased
 
+- **H3 Prompt API** has a `free_vram` switch, on by default. Turn it off to
+  keep ComfyUI models and a local LLM loaded together, e.g. when the LLM
+  runs on another GPU; ComfyUI then neither unloads its models before LLM
+  requests nor calls `unload_url`.
 - **H3 Long Video (Simple)** has an optional, experimental `last_frame` input: a closing
   image pinned to the final frame of the whole video. Earlier segments get
   it as a keyframe at that same final frame on their own timeline, past

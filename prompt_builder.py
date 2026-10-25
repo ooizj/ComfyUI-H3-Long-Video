@@ -271,7 +271,7 @@ def rewrite_fields(fields, picture_count, config, image_paths=(), language="Engl
         key = config.get("api_key", "").strip()
         data = request_chat(chat_endpoint(config["api_url"]), payload,
                             {"Authorization": f"Bearer {key}"} if key else {}, config.get("timeout_seconds", 600),
-                            local_llm=config.get("local_llm", False))
+                            free_vram=config.get("free_vram", False))
         values = read_json_message(data, responses, "H3 fields")
         if not isinstance(values, dict) or any(not isinstance(values.get(name), str) for name in FIELDS):
             raise ValueError("AI did not return all six text fields. The original is unchanged; retry or increase max_tokens.")
@@ -286,7 +286,7 @@ def rewrite_fields(fields, picture_count, config, image_paths=(), language="Engl
             raise ValueError("AI translated or invented <d> dialogue. The original is unchanged; retry or use a stronger model.")
         return result
     finally:
-        release_llm(config.get("local_llm", False), config.get("unload_url", ""))
+        release_llm(config.get("free_vram", False), config.get("unload_url", ""))
         if config.get("log_prompts", True):
             save_builder_log(fields, result, pictures, payload["model"], time.monotonic() - started,
                              responses, config.get("api_key", ""), payload, sys.exception() if result is None else None)

@@ -28,7 +28,7 @@ def main(log_root):
     images = torch.zeros(2, 2048, 1024, 3)
     images[1, ..., 2] = 1
     config = {"model": "vision-test", "api_url": "http://localhost:1234/v1", "api_key": "test-secret", "log_prompts": True,
-              "local_llm": True, "unload_url": "http://127.0.0.1:8081/api/models/unload"}
+              "local_llm": True, "free_vram": True, "unload_url": "http://127.0.0.1:8081/api/models/unload"}
     with patch.object(image_prompt, "request_chat", side_effect=[reply(" A black frame. "), reply("一块蓝色。")]) as request, \
             patch.object(image_prompt, "release_llm") as release:
         result = image_prompt.ImageToPrompt.execute(images, config, language="中文")
@@ -37,7 +37,7 @@ def main(log_root):
     assert payload["messages"][0]["content"] == image_prompt.system_prompt("full_prompt", "中文")
     assert "Simplified Chinese" in payload["messages"][0]["content"] and "lighting direction" in payload["messages"][0]["content"]
     assert payload["messages"][1]["content"][0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
-    assert request.call_args.kwargs["local_llm"] is True and "test-secret" not in json.dumps(payload)
+    assert request.call_args.kwargs["free_vram"] is True and "test-secret" not in json.dumps(payload)
     release.assert_called_once_with(True, "http://127.0.0.1:8081/api/models/unload")
     log_path = next((Path(log_root) / "h3_prompt_logs").glob("*_image_prompt.json"))
     log = log_path.read_text(encoding="utf-8")
