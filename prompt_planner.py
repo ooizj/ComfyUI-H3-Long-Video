@@ -20,8 +20,8 @@ from server import PromptServer
 from .csrf_guard import require_same_origin
 from .nodes import FPS
 from .prompt_log import new_prompt_log_path, prompt_request_log, prompt_trace_text, write_prompt_log
-from .prompt_timing import (EVENT_KINDS, validate_timeline, queue_shared_speech, cap_shot_speech, split_long_speech,
-                            protect_dialogue_boundaries, validate_prompts)
+from .prompt_timing import (EVENT_KINDS, LAST_FRAME_SECONDS, validate_timeline, queue_shared_speech, cap_shot_speech,
+                            split_long_speech, protect_dialogue_boundaries, validate_prompts)
 
 _LOG = logging.getLogger("h3_motion_context")
 
@@ -186,6 +186,12 @@ SECTIONS = {
 }
 STRUCTURED_NOTE = ("\nReturn each clip as a JSON object with one string field per section of its input mode. "
                    "The program writes the section names, so do not repeat them inside the text.")
+LAST_FRAME_NOTE = ("\nThe host pins a closing image to the final frame of the whole video, which ends the last clip. "
+                   "Keep any source closing-frame or last-frame instruction, such as the retention_analysis line "
+                   "'Closing guide frame (frame_idx=-1): fully_preserved' or a [keyframe completion + reference "
+                   "generation] summary, in the last clip only. Earlier clips do not mention the closing image; a "
+                   "summary prefix that only reflects it becomes [reference generation] there. End the last clip's "
+                   "final action on the closing image's composition.")
 TIMED = {"start_seconds": {"type": "number"}, "end_seconds": {"type": "number"}, "text": {"type": "string"}}
 TIMELINE_SCHEMA = {"type": "object", "required": ["speech", "events"], "additionalProperties": False, "properties": {
     "speech": {"type": "array", "items": {"type": "object", "required": [*TIMED, "from_shot"], "additionalProperties": False,
@@ -368,10 +374,10 @@ _PLAN_CACHE = OrderedDict()
 
 def split_prompts(prompt, schedule, input_mode, reference_counts, model, variation,
                   api_url, api_key, json_mode, max_tokens, timeout_seconds, log_prompts=True,
-                  local_llm=False, unload_url=""):
+                  local_llm=False, unload_url="", has_last_frame=False):
     """Return the final sampling schedule and its prompts before video inference."""
     key = json.dumps([prompt, schedule, input_mode, reference_counts, api_url, model, variation, json_mode, max_tokens,
-                      local_llm])
+                      local_llm, has_last_frame])
     if key in _PLAN_CACHE:
         _PLAN_CACHE.move_to_end(key)
         _LOG.info("H3 Prompt: reusing the segment prompts planned for these inputs; change variation for new ones")
@@ -383,7 +389,7 @@ def split_prompts(prompt, schedule, input_mode, reference_counts, model, variati
         # Local servers constrain decoding to a JSON schema; cloud APIs keep plain JSON mode.
         result = plan_prompts(prompt, schedule, input_mode, reference_counts, model, variation,
                               request, json_mode, max_tokens, log_prompts, api_key,
-                              structured=local_llm and json_mode)
+                              structured=local_llm and json_mode, has_last_frame=has_last_frame)
     finally:
         release_llm(local_llm, unload_url)
     _PLAN_CACHE[key] = result
@@ -441,12 +447,12 @@ def prompt_windows(schedule, speech, events):
 
 
 def plan_prompts(prompt, schedule, input_mode, reference_counts, model, variation,
-                 request, json_mode, max_tokens, log_prompts=True, api_key="", structured=False):
+                 request, json_mode, max_tokens, log_prompts=True, api_key="", structured=False, has_last_frame=False):
     """Read the timeline, then write final prompts with each clip's local times calculated here."""
     payload = {"model": model.strip(), "max_tokens": max_tokens, "stream": False}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
-    note = STRUCTURED_NOTE if structured else ""
+    note = (STRUCTURED_NOTE if structured else "") + (LAST_FRAME_NOTE if has_last_frame else "")
     started = time.perf_counter()
     prompts = None
     responses = []
@@ -467,7 +473,8 @@ def plan_prompts(prompt, schedule, input_mode, reference_counts, model, variatio
         speech, events = validate_timeline(timeline, prompt)
         longest = max(s["sampled_seconds"] for s in schedule)
         speech, source = split_long_speech(cap_shot_speech(queue_shared_speech(speech), prompt), prompt, longest)
-        schedule = segment_schedule(protect_dialogue_boundaries(schedule, speech, FPS))
+        schedule = segment_schedule(protect_dialogue_boundaries(
+            schedule, speech, FPS, LAST_FRAME_SECONDS * FPS if has_last_frame else 0))
         for segment in schedule:
             if segment["sampled_seconds"] > longest:
                 _LOG.warning("H3 Prompt: segment %d samples %.2fs instead of %.2fs so no timed line is cut; it needs more VRAM. "

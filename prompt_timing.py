@@ -33,6 +33,8 @@ _SUNG = re.compile(r"\b(?:sings?|singing|sang|sung|songs?|hums?|humming|hummed|c
                    r"|唱|哼|歌|诵|吟|노래", re.IGNORECASE)
 _CLAUSE_END = re.compile(r"\n|</d>|[。！？!?]|\.(?=\s)")
 EVENT_KINDS = ("cut", "action", "sound", "music")
+# With a last_frame, the last segment samples at least this much new content to move toward that image.
+LAST_FRAME_SECONDS = 4
 FIRST_FRAME_INSTRUCTION ="For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced."
 
 
@@ -190,20 +192,37 @@ def split_long_speech(events, source, seconds):
     return parts, source
 
 
-def protect_dialogue_boundaries(schedule, events, fps):
+def reserve_last_frames(plan, frames, fps, ranges=()):
+    """Move 17-frame steps from the latest earlier segment that can spare them into the last segment, until it
+    samples at least `frames` new frames and its start splits no speech range. Lengths stay on H3's grid and
+    the total is unchanged."""
+    plan = list(plan)
+    while plan[-1][0] - plan[-1][1] < frames or any(a < sum(k for *_, k in plan[:-1]) < b for a, b in ranges):
+        donor = next((i for i in range(len(plan) - 2, -1, -1)
+                      if plan[i][0] - 17 >= align_frame_count(max(5, plan[i][1] + fps, plan[i + 1][1] + 1))), None)
+        if donor is None:
+            break
+        length, overlap, keep = plan[donor]
+        plan[donor] = (length - 17, overlap, keep - 17)
+        length, overlap, keep = plan[-1]
+        plan[-1] = (length + 17, overlap, keep + 17)
+    return plan
+
+
+def protect_dialogue_boundaries(schedule, events, fps, last_frames=0):
     ranges = [(round(e["start_seconds"] * fps), round(e["end_seconds"] * fps)) for e in events]
     ranges = [(a, b - min(LINE_END_SLACK, (b - a) // 2)) if any(a < c <= b + LINE_END_SLACK for c, _ in ranges) else (a, b)
               for a, b in ranges]
     original = [(s["sampled_frames"], s["overlap_frames"], s["retained_frames"]) for s in schedule]
     if not ranges:
-        return original
+        return reserve_last_frames(original, last_frames, fps)
     cursor = 0
     for _, _, keep in original[:-1]:
         cursor += keep
         if any(a < cursor < b for a, b in ranges):
             break
     else:
-        return original
+        return reserve_last_frames(original, last_frames, fps, ranges)
 
     total = sum(s[2] for s in original)
     target = original[0][0]
@@ -234,7 +253,7 @@ def protect_dialogue_boundaries(schedule, events, fps):
         keep = min(total - cursor, chosen - overlap)
         plan.append((chosen, overlap, keep))
         cursor += keep
-    return plan
+    return reserve_last_frames(plan, last_frames, fps, ranges)
 
 
 def validate_prompts(prompts, schedule, events, source, input_mode):

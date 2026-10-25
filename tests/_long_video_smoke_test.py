@@ -300,6 +300,21 @@ def test_prompt_api():
         planner.split_prompts(full_prompt, schedule, "Ref2VA", REFS, **(settings | {"variation": 1}))
         assert post.call_count == 4
 
+        # A closing image changes the plan, so has_last_frame is part of the reuse key; its last segment keeps 4 s.
+        post.reset_mock()
+        post.side_effect = [response(timeline), response({"prompts": expected})] * 2
+        planner._PLAN_CACHE.clear()
+        tail_schedule = planner.segment_schedule(long.plan_segments(17, 15, 22))
+        plain = planner.split_prompts(full_prompt, tail_schedule, "Ref2VA", REFS, **settings)
+        assert post.call_args.kwargs["json"]["messages"][0]["content"] == planner.SYSTEM_PROMPT
+        closing = planner.split_prompts(full_prompt, tail_schedule, "Ref2VA", REFS, **settings, has_last_frame=True)
+        assert post.call_count == 4
+        assert post.call_args.kwargs["json"]["messages"][0]["content"] == planner.SYSTEM_PROMPT + planner.LAST_FRAME_NOTE
+        assert [s["sampled_frames"] for s in plain[0]] == [362, 73]
+        assert [(s["sampled_frames"], s["overlap_frames"]) for s in closing[0]] == [(311, 0), (124, 22)]
+        assert planner.split_prompts(full_prompt, tail_schedule, "Ref2VA", REFS, **settings, has_last_frame=True) == closing
+        assert post.call_count == 4
+
         post.side_effect = [response(timeline), response({"prompts": [expected[0].replace("the man", "<Subject 1>（S1）"), expected[1]]})]
         prompts = split(full_prompt, schedule, "Ref2VA", REFS, **settings)[1]
         assert prompts[0].startswith("From 0 to 3 seconds, <Subject 1>(S1) says") and "（" not in prompts[0]
@@ -432,6 +447,9 @@ def test_dialogue_boundaries():
     assert [e['local_seconds'] for e in windows[1]['speech']] == [[3.75, 6.58]]
     assert [e['local_seconds'] for e in windows[2]['speech']] == [[1.08, 4.08]]
     assert schedule[1]['final_end_seconds'] == 226 / 24
+    # A last_frame needs 4 s of new frames in the last segment: whole steps move out of the segment before it,
+    # past the start of the line the moved cut would split.
+    assert timing.protect_dialogue_boundaries(schedule, events, 24, 96) == [(124, 0, 124), (90, 22, 68), (175, 22, 144)]
     # Three back-to-back lines filling 10 s still split into two segments instead of one 10 s segment.
     touching = [dict(events[0], start_seconds=a, end_seconds=b) for a, b in [(0, 3), (3, 6), (6, 10)]]
     assert len(timing.protect_dialogue_boundaries(planner.segment_schedule(long.plan_segments(10, 5, 22)), touching, 24)) == 2
@@ -564,6 +582,19 @@ def main():
         assert sum(p[2] for p in parts) == max(1, round(total * 24))
         assert all(length % 17 == 5 and 0 < keep <= length - overlap for length, overlap, keep in parts)
         assert all(keep == length - overlap for length, overlap, keep in parts[:-1])
+    # last_frame: 17 s would end with 2.1 s of new frames; whole 17-frame steps move into it until it has 4 s.
+    assert long.plan_segments(17, 15, 22) == [(362, 0, 362), (73, 22, 46)]
+    assert long.plan_segments(17, 15, 22, has_last_frame=True) == [(311, 0, 311), (124, 22, 97)]
+    for total, segment, context, continuing in [(17, 15, 22, False), (30, 5, 22, False), (17, 15, 5, False),
+                                                (31, 15, 39, True), (60.1, 5, 56, True), (14, 5, 22, True)]:
+        plain = long.plan_segments(total, segment, context, continuing)
+        parts = long.plan_segments(total, segment, context, continuing, has_last_frame=True)
+        assert len(parts) == len(plain) > 1
+        assert sum(p[2] for p in parts) == sum(p[2] for p in plain)
+        assert sum(k for *_, k in delivered(parts)) == sum(k for *_, k in delivered(plain))
+        assert all(length % 17 == 5 for length, _, _ in parts)
+        assert all(keep == length - overlap for length, overlap, keep in parts[:-1])
+        assert parts[-1][0] - parts[-1][1] >= timing.LAST_FRAME_SECONDS * 24
 
     samples = []
     events = []
@@ -775,7 +806,7 @@ def main():
 
             full_prompt = "detailed_description: [Shot 1] A continuous 14-second dinner conversation."
             def adapt(prompt, schedule, mode, reference_count, **settings):
-                assert prompt == full_prompt and settings == api_settings
+                assert prompt == full_prompt and settings == api_settings | {"has_last_frame": False}
                 assert schedule == planner.segment_schedule(long.plan_segments(14, segment_seconds, 22))
                 assert mode == expected_mode and reference_count == {"Picture": expected_refs, "Video": 0, "Audio": 0}
                 return schedule, [f"Segment {s['segment']}: continue dinner." for s in schedule]
@@ -807,6 +838,59 @@ def main():
                     assert vae.encode_calls == expected_refs + 1
                     assert all(len(c["minimax_ref_items"]) == expected_refs for c in clip.calls)
                     assert len(samples[0][1]["minimax_keyframes"]) == 1
+
+            # last_frame: every segment gets one keyframe at the video's final frame on its own timeline, the last
+            # segment's final frame and past the end of earlier ones, on that segment's conditioning only.
+            last = torch.ones(1, 32, 32, 3)
+            guided = []
+
+            def record(noise, guider, sampler, sigmas, latent):
+                guided.append((guider.conditioning[0][1], motion._pixel_frames(latent["samples"].tensors[0].shape[2])))
+                return io.NodeOutput(latent, latent)
+
+            def closing(positive, index):
+                return [k for k in positive.get("minimax_keyframes", []) if k["resolved_frame_index"] == index]
+
+            image_to_video = long.MiniMaxH3ImageToVideo.execute
+            for closing_image, total, segment_seconds, frames in [(last, 17, 15, [311, 124]), (None, 17, 15, [362, 73]),
+                                                                  (last, 20, 8, [192, 192, 141])]:
+                guided.clear()
+                encoded = []
+                with patch.object(long.SamplerCustomAdvanced, "execute", side_effect=record),                         patch.object(long.MiniMaxH3ImageToVideo, "execute",
+                                     side_effect=lambda **kwargs: encoded.append(image_to_video(**kwargs)) or encoded[-1]),                         patch.object(long, "write_manifest", wraps=long.write_manifest) as manifest_writes,                         patch.object(long, "write_prompt_log", wraps=long.write_prompt_log) as log_writes:
+                    video, _, _ = node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Walk.", total, width=32, height=32,
+                                               segment_seconds=segment_seconds, last_frame=closing_image,
+                                               prompt_api=api_settings).result
+                parts = delivered(long.plan_segments(total, segment_seconds, 22, has_last_frame=closing_image is not None))
+                assert [f for _, f in guided] == frames == [length for length, _, _ in parts]
+                final = video.get_frame_count() - 1
+                assert final == sum(k for *_, k in parts) - 1
+                for index, ((positive, _), (_, overlap, _)) in enumerate(zip(guided, parts)):
+                    keys = closing(positive, final - sum(k for *_, k in parts[:index]) + overlap)
+                    assert len(keys) == (closing_image is not None) and all("latent" in k for k in keys)
+                if closing_image is not None:
+                    assert closing(guided[-1][0], guided[-1][1] - 1)
+                # The prompt is unchanged, so all segments reuse one conditioning, which never gets the keyframe.
+                assert len(encoded) == 1 and "minimax_keyframes" not in encoded[0].result[0][0][1]
+                assert manifest_writes.call_args.args[1]["has_last_frame"] is (closing_image is not None)
+                assert log_writes.call_args.args[1]["has_last_frame"] is (closing_image is not None)
+
+            # One segment carries both the first and the last frame, with or without references.
+            with patch.object(long.SamplerCustomAdvanced, "execute", side_effect=record):
+                for refs in (None, first):
+                    guided.clear()
+                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Walk.", 5, width=32, height=32, segment_seconds=5,
+                                 first_frame=first, last_frame=last, reference_images=refs, save_latents=False)
+                    (positive, frames), = guided
+                    assert sorted(k["resolved_frame_index"] for k in positive["minimax_keyframes"]) == [0, frames - 1]
+                # Continuing a video pins only its opening, so the closing keyframe survives the motion context.
+                for context in (dict(context_latent=long_latent), dict(context_video=long_video)):
+                    guided.clear()
+                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Keep walking.", 5, width=32, height=32,
+                                 segment_seconds=5, last_frame=last, save_latents=False, **context)
+                    (positive, frames), = guided
+                    assert len(closing(positive, frames - 1)) == 1
+                    assert len([k for k in positive["minimax_keyframes"] if "latent" in k]) == 8
 
             samples.clear()
             adjusted = planner.segment_schedule([(124, 0, 124), (90, 22, 68), (175, 22, 144)])
@@ -867,7 +951,7 @@ def main():
             assert set(Path(temp).iterdir()) == files_before
         finally:
             folder_paths.set_temp_directory(original_temp)
-    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size, reference videos and audio")
+    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size, reference videos and audio, last_frame keyframe and last-segment floor")
 
 
 if __name__ == "__main__":

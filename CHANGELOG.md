@@ -10,6 +10,15 @@ layout. Each entry below says which of the two it works with.
 
 ## Unreleased
 
+- **H3 Long Video (Simple)** has an optional, experimental `last_frame` input: a closing
+  image pinned to the final frame of the whole video. Earlier segments get
+  it as a keyframe at that same final frame on their own timeline, past
+  their end, so a long shot keeps the closing scene and camera from the
+  start instead of hard-cutting to it at the last segment. It works in
+  Ref2VA and without references, together with `first_frame`,
+  `context_latent` or `context_video`. With it the last segment keeps at
+  least 4 s of new frames, taken from the segment before; segment prompts
+  mention the closing image in the last segment only.
 - New **Image to Prompt** node writes an image generation prompt from a
   picture, in English or Chinese, with the vision model of the connected
   H3 Prompt API. `full_prompt` suits any text-to-image model;

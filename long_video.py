@@ -34,6 +34,7 @@ from .segment_store import (
     folder_size, new_run_directory, save_segment_latent, segment_file, write_manifest,
 )
 from .prompt_planner import prompt_preview, segment_schedule, split_prompts
+from .prompt_timing import LAST_FRAME_SECONDS, reserve_last_frames
 from .prompt_log import new_prompt_log_path, write_prompt_log
 
 _LOG = logging.getLogger("h3_motion_context")
@@ -87,8 +88,9 @@ class _LongVideoProgress:
             self.original_hook(value, total, preview, **kwargs)
 
 
-def plan_segments(total_seconds, segment_seconds, context_length, continuing=False):
-    """continuing: the first segment also continues an existing clip (context_latent/context_video)."""
+def plan_segments(total_seconds, segment_seconds, context_length, continuing=False, has_last_frame=False):
+    """continuing: the first segment also continues an existing clip (context_latent/context_video).
+    has_last_frame: the last segment borrows frames from earlier ones to keep LAST_FRAME_SECONDS of new content."""
     if not math.isfinite(total_seconds) or total_seconds <= 0:
         raise ValueError("Total duration must be a positive number of seconds.")
     if not math.isfinite(segment_seconds) or segment_seconds <= 0:
@@ -105,7 +107,7 @@ def plan_segments(total_seconds, segment_seconds, context_length, continuing=Fal
         keep = min(remaining, length - overlap)
         plan.append((length, overlap, keep))
         remaining -= keep
-    return plan
+    return reserve_last_frames(plan, LAST_FRAME_SECONDS * FPS, FPS) if has_last_frame else plan
 
 
 def check_context_latent(latent, width, height, context_length, audio_context_length):
@@ -216,6 +218,8 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                     tooltip="Use the stock tiled video VAE decoder to reduce decoding memory."),
                 io.Image.Input("first_frame", optional=True,
                     tooltip="Optional opening image, used only for the first segment."),
+                io.Image.Input("last_frame", optional=True,
+                    tooltip="Experimental. Optional closing image, pinned to the final frame of the whole video. Earlier segments see it as where the video ends, so they keep its scene and camera instead of cutting to it. Works with or without reference inputs (Ref2VA or FL2VA/T2VA), with first_frame and with context_latent/context_video. The last segment keeps at least 4 s of new frames to reach it."),
                 io.Latent.Input("context_latent", optional=True,
                     tooltip="Continue an earlier H3 clip exactly, from H3 Long Video Load Latent or the latent output of another Long Video. Its size must equal width/height. The new video starts where it ends; join them with Concatenate Video. Connect either this or context_video, not both."),
                 io.Video.Input("context_video", optional=True,
@@ -249,7 +253,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
     def execute(cls, model, clip, vae, audio_vae, prompt="", total_seconds=30.0, seed=0,
                 width=960, height=544, segment_seconds=15.0, steps=20,
                 sampler_name="res_multistep", scheduler="simple", context_length="22",
-                audio_context_length=24, tiled_decode=True, first_frame=None, context_latent=None,
+                audio_context_length=24, tiled_decode=True, first_frame=None, last_frame=None, context_latent=None,
                 context_video=None, reference_images=None, reference_videos=None, reference_audios=None,
                 prompt_api=None, log_prompts=True, ref_image_size="match", save_latents=True):
         if not hasattr(InputImpl, "VideoFromList"):
@@ -274,7 +278,8 @@ class MiniMaxH3LongVideo(io.ComfyNode):
         elif continues == "video":
             context_frames, context_audio = context_video_tail(
                 context_video, width, height, int(context_length), audio_context_length)
-        plan = plan_segments(total_seconds, segment_seconds, int(context_length), continuing=bool(continues))
+        plan = plan_segments(total_seconds, segment_seconds, int(context_length), continuing=bool(continues),
+                             has_last_frame=last_frame is not None)
         schedule = segment_schedule(plan)
         prompts = [prompt] * len(plan)
         references = {}
@@ -299,7 +304,8 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                                  "split the prompt; without it every segment repeats the whole story. For one segment, set "
                                  "total_seconds no higher than segment_seconds.")
             input_mode = "Ref2VA" if references else "I2VA" if first_frame is not None else "T2VA"
-            schedule, prompts = split_prompts(prompt, schedule, input_mode, reference_counts, **prompt_api)
+            schedule, prompts = split_prompts(prompt, schedule, input_mode, reference_counts,
+                                              has_last_frame=last_frame is not None, **prompt_api)
             plan = [(s["sampled_frames"], s["overlap_frames"], s["retained_frames"]) for s in schedule]
         # Keep the last clip's rounding up to H3's grid too (at most 16 frames), so the video ends where its
         # latent ends and can be continued without a jump. Prompts treat those frames as a padded tail.
@@ -318,7 +324,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 "width": width, "height": height, "steps": steps,
                 "sampler_name": sampler_name, "scheduler": scheduler,
                 "reference_counts": reference_counts, "has_first_frame": first_frame is not None,
-                "continues": continues,
+                "has_last_frame": last_frame is not None, "continues": continues,
             }
             text = (f"Seeds: {report['seeds']}\nSize: {width}x{height}\nSteps: {steps}\n"
                     f"Sampler: {sampler_name}\nScheduler: {scheduler}\n\nOriginal prompt:\n\n{prompt}\n\n"
@@ -346,7 +352,8 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 "segment_seconds": segment_seconds, "context_length": int(context_length),
                 "audio_context_length": audio_context_length, "steps": steps, "sampler_name": sampler_name,
                 "scheduler": scheduler, "reference_counts": reference_counts,
-                "has_first_frame": first_frame is not None, "continues": continues, "original_prompt": prompt,
+                "has_first_frame": first_frame is not None, "has_last_frame": last_frame is not None,
+                "continues": continues, "original_prompt": prompt,
                 "segments": [{**entry, "prompt": text, "seed": seeds[i], "latent": None, "video": None}
                              for i, (entry, text) in enumerate(zip(schedule, prompts))],
             }
@@ -407,6 +414,15 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                         positive, trim_frames = context.apply(
                             positive, vae, latent, context_length, audio_context_length,
                             context_latent=previous)
+                    if last_frame is not None:
+                        # Every segment sees the closing image at the video's final frame on its own timeline: the
+                        # last frame of the last segment, and past the end of earlier ones, so they already keep its
+                        # scene and camera instead of choosing their own and cutting to it later. Added after the
+                        # motion context, which only accepts anchors inside the clip.
+                        positive, = MiniMaxH3AddGuide.execute(
+                            positive, latent, frame_idx=-1, vae=vae, image=last_frame[:1]).result
+                        positive[0][1]["minimax_keyframes"][-1]["resolved_frame_index"] = (
+                            sum(keep for *_, keep in plan[index:]) - 1 + plan[index][1])
                     guider, = BasicGuider.execute(model, positive).result
                     noise, = RandomNoise.execute(seeds[index]).result
                     sampling_started = time.perf_counter()

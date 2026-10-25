@@ -46,6 +46,7 @@ The example keeps LoRA/attention settings inside its model subgraph; adjust them
 | `reference_images` | Optional pictures in `<Picture N>` order, used in every segment. Use a Ref2VA model with references, or a compatible FL2VA/T2VA model without them. |
 | `reference_videos` / `reference_audios` | Optional Ref2VA references, up to 3 each, used in every segment: `<Video N>` and `<Audio N>`, such as a voice. A reference video's soundtrack takes the next `<Audio N>` before `reference_audios`. Other frame rates are resampled to 24 fps. |
 | `first_frame` | Optional opening image for the first segment. |
+| `last_frame` | Experimental. Optional closing image, pinned to the final frame of the whole video. Earlier segments see it as where the video ends, so a long shot keeps its scene and camera instead of cutting to it at the last segment. Works with or without references, with `first_frame` and when continuing a video. The last segment keeps at least 4 s of new frames, taken from the segment before it if needed. Describe the people and objects in the closing image in the prompt, or they may pop in at the end. |
 | `context_latent` / `context_video` | Optional: continue an earlier video. See [Continue a video](#continue-a-video). |
 | `VIDEO` | The finished video. |
 | `prompt_preview` | The actual segment prompts and timing windows; connect a text display to check them. |

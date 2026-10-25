@@ -121,6 +121,9 @@
       "first_frame": {
         "tooltip": "可选的开场图片，仅用于第一段。"
       },
+      "last_frame": {
+        "tooltip": "实验性功能。可选的结尾图片，钉在整条视频的最后一帧。前面各段把它看作视频的结尾，沿用它的场景和机位，而不是到最后才切过去。带参考（Ref2VA）或不带参考（FL2VA/T2VA）都能用，也能与 first_frame、context_latent/context_video 一起用。最后一段至少保留 4 秒新帧来过渡到它。"
+      },
       "context_latent": {
         "tooltip": "精确接续之前的 H3 片段，来自 H3 Long Video Load Latent 或另一个 Long Video 的 latent 输出。尺寸必须等于 width/height。新视频从它的结尾开始，用 Concatenate Video 拼接。context_latent 和 context_video 只能接一个。"
       },

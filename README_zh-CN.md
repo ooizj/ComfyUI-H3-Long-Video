@@ -46,6 +46,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 | `reference_images` | 可选参考图，按 `<Picture N>` 顺序作用于所有段。有参考图时用 Ref2VA 模型，否则用兼容的 FL2VA/T2VA 模型。 |
 | `reference_videos` / `reference_audios` | 可选 Ref2VA 参考，各最多 3 个，作用于所有段：`<Video N>` 和 `<Audio N>`（如音色）。参考视频自带的声音先占用下一个 `<Audio N>`，再轮到 `reference_audios`。其他帧率会重采样为 24 fps。 |
 | `first_frame` | 可选首帧，只用于第一段开场。 |
+| `last_frame` | 实验性功能。可选尾帧，钉在整条视频的最后一帧。前面各段也能看到它是整条视频的结尾，长镜头会沿用它的场景和机位，不会到最后一段才硬切过去。带不带参考都能用，可与 `first_frame` 一起用，接续视频时也能用。最后一段至少保留 4 秒新帧，不够时从前一段借帧。尾帧里的人和物要在提示词里写上，否则可能在结尾突然出现。 |
 | `context_latent` / `context_video` | 可选，接续之前的视频，见[接续视频](#接续视频)。 |
 | `VIDEO` | 生成的视频。 |
 | `prompt_preview` | 实际的各段提示词和时间窗口，可接文本显示节点检查。 |
