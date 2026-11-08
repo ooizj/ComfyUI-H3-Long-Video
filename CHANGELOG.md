@@ -10,6 +10,10 @@ layout. Each entry below says which of the two it works with.
 
 ## Unreleased
 
+- **H3 Long Video (Simple)** takes optional `sampler` and `sigmas` inputs, so
+  distilled setups such as `lcm` with hand-written sigmas work. They replace
+  `sampler_name`, `steps` and `scheduler` for every segment; logs and the
+  manifest record the sigmas actually used.
 - **H3 Prompt API** has a `free_vram` switch, on by default. Turn it off to
   keep ComfyUI models and a local LLM loaded together, e.g. when the LLM
   runs on another GPU; ComfyUI then neither unloads its models before LLM

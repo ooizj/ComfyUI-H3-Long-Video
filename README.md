@@ -65,6 +65,7 @@ The example keeps LoRA/attention settings inside its model subgraph; adjust them
 | `seed` | `0` | Segment seeds are `seed + segment index`, starting at 0. |
 | `steps` | `20` | Sampling steps per segment. |
 | `sampler_name` / `scheduler` | `res_multistep` / `simple` | Sampler and schedule. |
+| `sampler` / `sigmas` | — | Optional SAMPLER and SIGMAS inputs, e.g. KSamplerSelect and Manual Sigmas. A connected `sampler` replaces `sampler_name`; connected `sigmas` replace `steps` and `scheduler` for every segment. Sigmas should start at the full noise level (1.0). |
 | `context_length` | `22` | Video overlap in frames: `5`, `22`, `39` or `56`. |
 | `audio_context_length` | `24` | Audio continuation window in video frames; `0` follows the video overlap. |
 | `tiled_decode` | `true` | Tiled decoding to reduce decoding memory. |

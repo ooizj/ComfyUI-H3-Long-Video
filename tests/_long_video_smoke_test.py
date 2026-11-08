@@ -901,6 +901,31 @@ def main():
                     assert len(closing(positive, frames - 1)) == 1
                     assert len([k for k in positive["minimax_keyframes"] if "latent" in k]) == 8
 
+            # A connected sampler and sigmas replace sampler_name/steps/scheduler for every segment.
+            custom_sigmas = torch.tensor([1.0, 0.8, 0.571429, 0.0])
+            custom_sampler = object()
+            used = []
+            def record_custom(noise, guider, sampler, sigmas, latent):
+                used.append((sampler, sigmas))
+                return io.NodeOutput(latent, latent)
+            with patch.object(long.SamplerCustomAdvanced, "execute", side_effect=record_custom), \
+                    patch.object(long.BasicScheduler, "execute", side_effect=AssertionError("scheduler used")), \
+                    patch.object(long.KSamplerSelect, "execute", side_effect=AssertionError("sampler_name used")), \
+                    patch.object(long, "write_manifest", wraps=long.write_manifest) as manifest_writes:
+                node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Walk.", 14, width=32, height=32, segment_seconds=8,
+                             prompt_api=api_settings, sampler=custom_sampler, sigmas=custom_sigmas)
+            assert len(used) > 1 and all(s is custom_sampler and t is custom_sigmas for s, t in used)
+            saved = manifest_writes.call_args.args[1]
+            assert saved["steps"] == 3 and saved["sampler_name"] == "custom"
+            assert saved["scheduler"] == "custom: 1, 0.8, 0.571429, 0"
+            for bad in (torch.tensor([1.0]), torch.zeros(2, 2)):
+                try:
+                    node.execute(None, Clip(), VideoVAE(), AudioVAE(), "Walk.", 5, width=32, height=32, segment_seconds=5,
+                                 save_latents=False, sigmas=bad)
+                    raise AssertionError("bad sigmas accepted")
+                except ValueError as error:
+                    assert "sigmas" in str(error)
+
             samples.clear()
             adjusted = planner.segment_schedule([(124, 0, 124), (90, 22, 68), (175, 22, 144)])
             with patch.object(long, "split_prompts", return_value=(adjusted, ["Greeting.", "Eating.", "Toast."])):
@@ -960,7 +985,7 @@ def main():
             assert set(Path(temp).iterdir()) == files_before
         finally:
             folder_paths.set_temp_directory(original_temp)
-    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size, reference videos and audio, last_frame keyframe and last-segment floor")
+    print("PASS: registration, 15s default, frame planning, plain JSON prompt planning, speech/dialogue validation, credential-safe logs, API bypass, multi-segment API requirement, local LLM VRAM handover, schema-constrained output, code-calculated event times, plan reuse, model list, grouped encoding/sampling, cross-group latent/audio continuation, real MP4 frame order, overall progress and hook cleanup, reference reuse, failure cleanup, saved segments and Load Latent, context_latent/context_video continuation and refusals, ref_image_size, reference videos and audio, last_frame keyframe and last-segment floor, custom sampler and sigmas")
 
 
 if __name__ == "__main__":

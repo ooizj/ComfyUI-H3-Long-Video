@@ -212,6 +212,10 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 io.Int.Input("steps", default=20, min=1, max=10000, advanced=True, optional=True),
                 io.Combo.Input("sampler_name", options=comfy.samplers.SAMPLER_NAMES, default="res_multistep", advanced=True, optional=True),
                 io.Combo.Input("scheduler", options=comfy.samplers.SCHEDULER_NAMES, default="simple", advanced=True, optional=True),
+                io.Sampler.Input("sampler", optional=True, advanced=True,
+                    tooltip="Optional sampler, such as from KSamplerSelect. When connected, sampler_name is ignored."),
+                io.Sigmas.Input("sigmas", optional=True, advanced=True,
+                    tooltip="Optional custom sigmas, such as from Manual Sigmas, used for every segment. When connected, steps and scheduler are ignored. Start at the full noise level (1.0 for H3): each segment is sampled from pure noise."),
                 io.Combo.Input("context_length", options=["22", "5", "39", "56"], default="22", advanced=True, optional=True),
                 io.Int.Input("audio_context_length", default=24, min=0, max=240, advanced=True, optional=True),
                 io.Boolean.Input("tiled_decode", default=True, advanced=True, optional=True,
@@ -255,7 +259,7 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                 sampler_name="res_multistep", scheduler="simple", context_length="22",
                 audio_context_length=24, tiled_decode=True, first_frame=None, last_frame=None, context_latent=None,
                 context_video=None, reference_images=None, reference_videos=None, reference_audios=None,
-                prompt_api=None, log_prompts=True, ref_image_size="match", save_latents=True):
+                prompt_api=None, log_prompts=True, ref_image_size="match", save_latents=True, sampler=None, sigmas=None):
         if not hasattr(InputImpl, "VideoFromList"):
             raise RuntimeError("H3 Long Video needs native Concatenate Video support. Update ComfyUI to use this node.")
         width = max(32, math.ceil(width / 32) * 32)
@@ -315,6 +319,17 @@ class MiniMaxH3LongVideo(io.ComfyNode):
         _LOG.info("H3 Long Video: %.3fs output, %d segment(s), %.3fs sampled before trimming",
                   sum(keep for _, _, keep in plan) / FPS, len(plan), sum(length for length, _, _ in plan) / FPS)
         preview = prompt_preview(schedule, prompts)
+        if sampler is None:
+            sampler, = KSamplerSelect.execute(sampler_name).result
+        else:
+            sampler_name = "custom"
+        if sigmas is None:
+            sigmas, = BasicScheduler.execute(model, scheduler, steps, 1.0).result
+        else:
+            if sigmas.ndim != 1 or sigmas.shape[-1] < 2:
+                raise ValueError("H3 Long Video: sigmas needs at least two values, from the start noise level down to 0.")
+            steps = sigmas.shape[-1] - 1
+            scheduler = "custom: " + ", ".join(f"{float(v):g}" for v in sigmas)
         seeds = [(seed + i) % (1 << 64) for i in range(len(plan))]
         if log_prompts:
             report = {
@@ -330,8 +345,6 @@ class MiniMaxH3LongVideo(io.ComfyNode):
                     f"Sampler: {sampler_name}\nScheduler: {scheduler}\n\nOriginal prompt:\n\n{prompt}\n\n"
                     f"Final sampling prompts (prepared before sampling):\n\n{preview}")
             write_prompt_log(new_prompt_log_path("video"), report, text, (prompt_api or {}).get("api_key", ""))
-        sampler, = KSamplerSelect.execute(sampler_name).result
-        sigmas, = BasicScheduler.execute(model, scheduler, steps, 1.0).result
         context = MiniMaxH3MotionContext()
         trim = MiniMaxH3MotionContextTrim()
         sampling_steps = max(0, sigmas.shape[-1] - 1)

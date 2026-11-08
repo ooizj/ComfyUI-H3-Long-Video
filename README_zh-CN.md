@@ -65,6 +65,7 @@ git clone https://github.com/ooizj/ComfyUI-H3-Long-Video.git comfyui-h3-long-vid
 | `seed` | `0` | 各段使用 `seed + 段索引`，索引从 0 开始。 |
 | `steps` | `20` | 每段采样步数。 |
 | `sampler_name` / `scheduler` | `res_multistep` / `simple` | 采样器与调度器。 |
+| `sampler` / `sigmas` | — | 可选的 SAMPLER、SIGMAS 输入，例如 K采样器选择、自定义Sigmas。接了 `sampler` 就不用 `sampler_name`；接了 `sigmas` 就不用 `steps` 和 `scheduler`，每段都用这组 sigmas。sigmas 应从满噪声（1.0）开始。 |
 | `context_length` | `22` | 视频续接的重叠帧数，可选 `5`、`22`、`39`、`56`。 |
 | `audio_context_length` | `24` | 音频续接窗口，以视频帧为单位；`0` 跟随视频重叠。 |
 | `tiled_decode` | `true` | 分块解码，降低解码显存。 |
